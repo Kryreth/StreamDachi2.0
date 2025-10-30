@@ -1,0 +1,61 @@
+Ok now that we have the top
+Also we need to have the timer pause until we speak from the voice ai. However the collection can continue.
+
+next, I would like to do the bottom section a lot different than before. so the Stream Dachi will continue but i want to see it like an IT workflow chart. I want to have a visual with the request items below and whatever the current state that this flow chart is in highlight that second with a green low transparent hue, if we have an error that breaks the chat then red, or warning yellow waiting for user input.
+
+- Grouped Box 1: - Waiting
+
+So we have two small boxes
+Box1: Waiting for Pool Responses. This status is for waiting for a response from the timer and collecting responses. Once something is collected then it says collected, and stays like this until the timer starts back up. We also need the ability to pause this. Remember to use the Priority list located in the SteamDachi Ai, also if any setting is in there that relates to what we have in here please update both sides accordingly to make both sides match. so if i toggle on one place the other will as well. Also up highlighted messages in the 4th setting. (also make this a customizable feature for the sure can update what they want per stage with the exception of 1st, this is hardcoded locked and will never change or be customizable. Also remember to remove all aspects of OpenAi either in code or in the programs user interface. 
+
+Box2: Waiting for Mic Responses. This status is for waiting for a response from a live mic. The user is able to change the input mic here, please include a drop down for all of their connected input devices. We also need the ability to pause this as well. (we need to create a grace period so that the user can speak without getting cut off. Please make a slider for this from a 1 sec wait to 10 sec wait, with 3 seconds being the default. 
+
+- Grouped Box 2: - Collecting 
+
+So we have two small boxes 
+Box1: (Selected/Pool Message/Responses) Shows selected message from the StreamDachi from the Twitch Chat responses and redeems, if we are not monitoring redeems then we need to as well, if we are then ignore the redeem idea. 
+
+Box2: (Mic Responses) Collects Live Mic response. Shows what is being said. Take note that Mic will override all pool resposnes.
+
+- Grouped Box 3: - Mic?/Pool?
+
+Boolean Value Box: Is this a Pool Response or a Mic Response? (Extremely important, if the selection is a Mic then please reset the pool timer and collected respones (restarts the Pool Process immediately and it does not go any further than here. Put please still update the database with the information.)
+If the value is Mic then please make a separate path 
+If the value is Pool then please make a separate path
+
+- Group Circle - Collection Complete
+(only a status light that we made it this far servers no other purpose)
+
+- Group Box 4: Ai Setup / Send 
+(make this a toggle feature to turn off, this is an ai aspect)
+
+For both Mic and Pool please add in this rule:  Please also give options here for Ai personality, like very nice, chaotic, herotic, seductive, Cat Girl/Guy, quirky, flirtous, professional, smart, technical, sports jokey, nerd, etc. this adds flavor to the ai response. also i please there is an option for this in the Ai Controls please update this accordingly as well.
+
+Mic Value will go towards this
+Box1 - Clean up and Rephrase - what was said in the live mic but keep the the core statement. This is more so to help users with disabilities in speaking, so check for stutters, rambling, shakeness, fumbling, and etc. and try to help the user speak. Also users without this disability and speak normally can still use this function for the same effect. Sends to Ai for Text
+
+Pool Value will go towards this
+Box2 - This will check the user who spoke and the content of what they said. Please use the database to analyze to check user history and if relates to topic or whatever use information from here. Also check related past messages (in the current stream from the collected responses to see if this relates to something similar that is being said in chat.) Sends to Ai for Text
+
+(Text Ai is whatever does the text ai generation, i believe we are using Groq correct me if i am wrong.)
+
+- Group Circle - Ai Text Sent
+(only a status light that we made it this far servers no other purpose)
+
+- Group Box - Ai Text Response 
+
+Box1: Ai Text Response - This displays what the response is from the Text Ai and send to voice ai
+
+(Voice Ai is the Text to Voice feature, i actually dont know what we are currently using, but i would like to be able to select a voice, Pitch, Speed, Volume, Female/ Male, etc. More options the better within 100% free limits.)
+
+- Group Circle - Voice Request Sent
+(only a status light that we made it this far servers no other purpose)
+
+- Group Box - Ai Voice
+(Option to turn this off and on)
+
+Box1: Voice Ai Response - The voice Ai will now verbally speak through the program as well as through another output for virtual cables, headphones, etc. We need to do the same thing as we did for the Mic options but for the output now instead. Oh we also need the option to mute the audio from the program if we dont need to hear it but still wish to push it through the output features.
+
+
+- Group Circle - Phase complete
+Restarts the entire cycle, timer restarts at this point. 

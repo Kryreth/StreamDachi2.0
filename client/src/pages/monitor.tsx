@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Pause, ChevronDown, ChevronUp, Clock, MessageSquare, Sparkles } from "lucide-react";
+import { Play, Pause, Square, ChevronDown, ChevronUp, Clock, MessageSquare, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -88,6 +88,18 @@ export default function Monitor() {
     },
   });
 
+  // Reset mutation
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/dachistream/reset", "POST");
+    },
+    onSuccess: () => {
+      setIsPaused(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/buffer"] });
+    },
+  });
+
   // Update interval mutation
   const updateIntervalMutation = useMutation({
     mutationFn: async (intervalSeconds: number) => {
@@ -166,25 +178,36 @@ export default function Monitor() {
               <p className="text-xs text-muted-foreground mt-1">Until next cycle</p>
             </div>
 
-            {/* Pause/Resume Button */}
-            <Button
-              onClick={handlePauseToggle}
-              variant={isPaused ? "default" : "secondary"}
-              className="w-full"
-              data-testid="button-pause-resume"
-            >
-              {isPaused ? (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Resume
-                </>
-              ) : (
-                <>
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
-                </>
-              )}
-            </Button>
+            {/* Pause/Resume and Stop Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={handlePauseToggle}
+                variant={isPaused ? "default" : "secondary"}
+                className="w-full"
+                data-testid="button-pause-resume"
+              >
+                {isPaused ? (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pause
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => resetMutation.mutate()}
+                variant="destructive"
+                className="w-full"
+                data-testid="button-stop"
+              >
+                <Square className="h-4 w-4 mr-2" />
+                Stop
+              </Button>
+            </div>
 
             {/* Timer Slider */}
             <div className="space-y-2">

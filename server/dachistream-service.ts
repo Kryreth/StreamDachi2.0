@@ -44,6 +44,11 @@ export class DachiStreamService {
   private lastCycleTime: Date | null = null;
   private onStatusChange?: (state: DachiStreamState) => void;
   private cycleIntervalSeconds: number = 15;
+  
+  // New timer tracking for proper pause/resume
+  private remainingSeconds: number = 15;
+  private pausedAt: Date | null = null;
+  private cycleStartTime: Date | null = null;
 
   constructor(storage: IStorage) {
     this.storage = storage;
@@ -59,6 +64,10 @@ export class DachiStreamService {
     if (settings && settings.dachiastreamCycleInterval) {
       this.cycleIntervalSeconds = settings.dachiastreamCycleInterval;
     }
+    
+    // Initialize timer
+    this.remainingSeconds = this.cycleIntervalSeconds;
+    this.cycleStartTime = new Date();
     
     // Start interval with configured cycle time
     this.intervalId = setInterval(() => {
@@ -78,9 +87,13 @@ export class DachiStreamService {
     
     this.cycleIntervalSeconds = intervalSeconds;
     
-    // Restart the interval with new timing
+    // Restart the interval with new timing and reset countdown
     if (this.intervalId) {
       clearInterval(this.intervalId);
+      this.remainingSeconds = this.cycleIntervalSeconds;
+      this.cycleStartTime = new Date();
+      this.pausedAt = null;
+      
       this.intervalId = setInterval(() => {
         this.processBuffer();
       }, this.cycleIntervalSeconds * 1000);
@@ -101,17 +114,60 @@ export class DachiStreamService {
   }
 
   pause() {
+    if (this.isPaused) return; // Already paused
+    
     this.isPaused = true;
-    this.addLog("status", "DachiStream paused");
+    this.pausedAt = new Date();
+    
+    // Calculate how much time was remaining when paused
+    if (this.cycleStartTime) {
+      const elapsed = Math.floor((this.pausedAt.getTime() - this.cycleStartTime.getTime()) / 1000);
+      this.remainingSeconds = Math.max(0, this.cycleIntervalSeconds - elapsed);
+    }
+    
+    this.addLog("status", `DachiStream paused (${this.remainingSeconds}s remaining)`);
     this.updateStatus("paused");
-    console.log("DachiStream paused");
+    console.log(`DachiStream paused with ${this.remainingSeconds}s remaining`);
   }
 
   resume() {
+    if (!this.isPaused) return; // Not paused
+    
     this.isPaused = false;
-    this.addLog("status", "DachiStream resumed");
+    this.pausedAt = null;
+    
+    // Restart the cycle with remaining time
+    this.cycleStartTime = new Date();
+    
+    this.addLog("status", `DachiStream resumed (${this.remainingSeconds}s until next cycle)`);
     this.updateStatus("collecting");
-    console.log("DachiStream resumed");
+    console.log(`DachiStream resumed with ${this.remainingSeconds}s until next cycle`);
+  }
+  
+  reset() {
+    // Clear the interval
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
+    
+    // Reset timer state
+    this.remainingSeconds = this.cycleIntervalSeconds;
+    this.cycleStartTime = new Date();
+    this.pausedAt = null;
+    this.isPaused = false;
+    this.lastCycleTime = null;
+    
+    // Clear buffer
+    this.clearBuffer();
+    
+    // Restart interval
+    this.intervalId = setInterval(() => {
+      this.processBuffer();
+    }, this.cycleIntervalSeconds * 1000);
+    
+    this.addLog("status", "DachiStream reset - timer and buffer cleared");
+    this.updateStatus("collecting");
+    console.log("DachiStream reset");
   }
 
   addMessage(message: ChatMessage) {
@@ -133,6 +189,11 @@ export class DachiStreamService {
 
   private async processBuffer() {
     this.lastCycleTime = new Date();
+    
+    // Reset timer for next cycle
+    this.cycleStartTime = new Date();
+    this.remainingSeconds = this.cycleIntervalSeconds;
+    
     this.addLog("info", `Processing cycle started - ${this.messageBuffer.messages.length} messages in buffer`);
     
     // Skip if paused or no messages
@@ -362,11 +423,23 @@ export class DachiStreamService {
   }
   
   getState(): DachiStreamState {
-    const nextCycleTime = this.lastCycleTime ? new Date(this.lastCycleTime.getTime() + this.cycleIntervalSeconds * 1000) : null;
-    const now = new Date();
-    const secondsUntilNextCycle = nextCycleTime 
-      ? Math.max(0, Math.floor((nextCycleTime.getTime() - now.getTime()) / 1000))
-      : this.cycleIntervalSeconds;
+    let secondsUntilNextCycle: number;
+    let nextCycleTime: Date | null = null;
+    
+    if (this.isPaused && this.pausedAt) {
+      // When paused, return the frozen remaining seconds
+      secondsUntilNextCycle = this.remainingSeconds;
+      nextCycleTime = new Date(this.pausedAt.getTime() + this.remainingSeconds * 1000);
+    } else if (this.cycleStartTime) {
+      // When running, calculate remaining time from cycle start
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - this.cycleStartTime.getTime()) / 1000);
+      secondsUntilNextCycle = Math.max(0, this.remainingSeconds - elapsed);
+      nextCycleTime = new Date(this.cycleStartTime.getTime() + this.remainingSeconds * 1000);
+    } else {
+      // Fallback when not started
+      secondsUntilNextCycle = this.cycleIntervalSeconds;
+    }
     
     return {
       status: this.currentStatus,

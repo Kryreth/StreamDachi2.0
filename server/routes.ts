@@ -664,6 +664,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/dachistream/reset", async (req, res) => {
+    try {
+      const dachiStreamService = (app as any).dachiStreamService;
+      if (!dachiStreamService) {
+        return res.status(503).json({ error: "DachiStream service not available" });
+      }
+      dachiStreamService.reset();
+      res.json({ success: true, message: "DachiStream reset" });
+    } catch (error) {
+      console.error("Error resetting DachiStream:", error);
+      res.status(500).json({ error: "Failed to reset DachiStream" });
+    }
+  });
+
   app.get("/api/dachistream/interval", (req, res) => {
     try {
       const dachiStreamService = (app as any).dachiStreamService;

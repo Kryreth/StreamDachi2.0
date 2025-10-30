@@ -42,7 +42,11 @@ Preferred communication style: Simple, everyday language.
 
 ### Feature Specifications
 
-*   **Configurable DachiStream Interval**: Customizable cycle interval (5-60 seconds) for DachiStream operations, stored in `dachipoolCycleInterval`.
+*   **Configurable DachiStream Interval**: Customizable cycle interval (1-300 seconds / 5 minutes) for DachiStream operations, adjustable via Monitor page slider or settings.
+*   **Monitor Page - 3 Module Design**: Completely redesigned Monitor page with clean, focused layout featuring three equal-sized modules:
+    *   **Status Collecting Messages Module**: Real-time countdown timer, pause/resume controls, and adjustable cycle interval slider (1 second to 5 minutes).
+    *   **Collected Messages Module**: Shows buffer count with expandable dropdown displaying current messages. Messages accumulate even when paused and auto-clear on cycle completion.
+    *   **AI Responses Module**: Shows total response count with expandable dropdown and user-selectable display limit (5/10/25/50 responses). Persistent history across cycles with original text and AI-rephrased versions.
 *   **Global Twitch User Search**: VIP management now supports searching all Twitch users using the Twitch Helix API, independent of active chatters.
 *   **AI Provider Switch**: Migrated all AI functionalities from OpenAI to GroqCloud, utilizing Groq SDK and models like Llama 3.3 70B Versatile.
 *   **Auto-Send to Chat**: AI responses can be automatically sent to Twitch chat.

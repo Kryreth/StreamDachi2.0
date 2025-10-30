@@ -34,7 +34,7 @@ export class DachiStreamService {
     messages: [],
     userMessageCounts: new Map(),
   };
-  private intervalId: NodeJS.Timeout | null = null;
+  private timeoutId: NodeJS.Timeout | null = null;
   private isPaused: boolean = false;
   private onMessageSelected?: (message: ChatMessage, context: string) => Promise<void>;
   
@@ -45,7 +45,7 @@ export class DachiStreamService {
   private onStatusChange?: (state: DachiStreamState) => void;
   private cycleIntervalSeconds: number = 15;
   
-  // New timer tracking for proper pause/resume
+  // Timer tracking for proper pause/resume with setTimeout
   private remainingSeconds: number = 15;
   private pausedAt: Date | null = null;
   private cycleStartTime: Date | null = null;
@@ -69,14 +69,25 @@ export class DachiStreamService {
     this.remainingSeconds = this.cycleIntervalSeconds;
     this.cycleStartTime = new Date();
     
-    // Start interval with configured cycle time
-    this.intervalId = setInterval(() => {
-      this.processBuffer();
-    }, this.cycleIntervalSeconds * 1000);
+    // Start first timeout
+    this.scheduleNextCycle(this.cycleIntervalSeconds);
     
     this.addLog("info", `DachiStream service started (${this.cycleIntervalSeconds}-second cycle)`);
     this.updateStatus("collecting");
     console.log(`DachiStream service started (${this.cycleIntervalSeconds}-second cycle)`);
+  }
+  
+  private scheduleNextCycle(seconds: number) {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+    }
+    
+    this.timeoutId = setTimeout(() => {
+      this.processBuffer();
+    }, seconds * 1000);
+    
+    this.remainingSeconds = seconds;
+    this.cycleStartTime = new Date();
   }
 
   updateCycleInterval(intervalSeconds: number) {
@@ -87,16 +98,11 @@ export class DachiStreamService {
     
     this.cycleIntervalSeconds = intervalSeconds;
     
-    // Restart the interval with new timing and reset countdown
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.remainingSeconds = this.cycleIntervalSeconds;
-      this.cycleStartTime = new Date();
+    // Restart the timer with new timing and reset countdown
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
       this.pausedAt = null;
-      
-      this.intervalId = setInterval(() => {
-        this.processBuffer();
-      }, this.cycleIntervalSeconds * 1000);
+      this.scheduleNextCycle(this.cycleIntervalSeconds);
       
       this.addLog("info", `Cycle interval updated to ${this.cycleIntervalSeconds} seconds`);
       console.log(`DachiStream cycle interval updated to ${this.cycleIntervalSeconds} seconds`);
@@ -104,9 +110,9 @@ export class DachiStreamService {
   }
 
   stop() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
     this.addLog("info", "DachiStream service stopped");
     this.updateStatus("idle");
@@ -122,7 +128,13 @@ export class DachiStreamService {
     // Calculate how much time was remaining when paused
     if (this.cycleStartTime) {
       const elapsed = Math.floor((this.pausedAt.getTime() - this.cycleStartTime.getTime()) / 1000);
-      this.remainingSeconds = Math.max(0, this.cycleIntervalSeconds - elapsed);
+      this.remainingSeconds = Math.max(0, this.remainingSeconds - elapsed);
+    }
+    
+    // Cancel the current timeout
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
     
     this.addLog("status", `DachiStream paused (${this.remainingSeconds}s remaining)`);
@@ -136,8 +148,8 @@ export class DachiStreamService {
     this.isPaused = false;
     this.pausedAt = null;
     
-    // Restart the cycle with remaining time
-    this.cycleStartTime = new Date();
+    // Resume with remaining time
+    this.scheduleNextCycle(this.remainingSeconds);
     
     this.addLog("status", `DachiStream resumed (${this.remainingSeconds}s until next cycle)`);
     this.updateStatus("collecting");
@@ -145,25 +157,22 @@ export class DachiStreamService {
   }
   
   reset() {
-    // Clear the interval
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
+    // Clear the timeout
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
     
     // Reset timer state
-    this.remainingSeconds = this.cycleIntervalSeconds;
-    this.cycleStartTime = new Date();
-    this.pausedAt = null;
     this.isPaused = false;
+    this.pausedAt = null;
     this.lastCycleTime = null;
     
     // Clear buffer
     this.clearBuffer();
     
-    // Restart interval
-    this.intervalId = setInterval(() => {
-      this.processBuffer();
-    }, this.cycleIntervalSeconds * 1000);
+    // Restart with full interval
+    this.scheduleNextCycle(this.cycleIntervalSeconds);
     
     this.addLog("status", "DachiStream reset - timer and buffer cleared");
     this.updateStatus("collecting");
@@ -190,13 +199,9 @@ export class DachiStreamService {
   private async processBuffer() {
     this.lastCycleTime = new Date();
     
-    // Reset timer for next cycle
-    this.cycleStartTime = new Date();
-    this.remainingSeconds = this.cycleIntervalSeconds;
-    
     this.addLog("info", `Processing cycle started - ${this.messageBuffer.messages.length} messages in buffer`);
     
-    // Skip if paused or no messages
+    // Skip if paused (timeout won't be rescheduled until resume)
     if (this.isPaused) {
       this.addLog("status", "Cycle skipped - service is paused");
       this.updateStatus("paused");
@@ -207,6 +212,10 @@ export class DachiStreamService {
       this.addLog("info", "Cycle skipped - no messages in buffer");
       this.updateStatus("collecting");
       this.broadcastState();
+      // Schedule next cycle
+      if (!this.isPaused) {
+        this.scheduleNextCycle(this.cycleIntervalSeconds);
+      }
       return;
     }
 
@@ -221,6 +230,10 @@ export class DachiStreamService {
         this.addLog("status", "DachiPool is disabled - clearing buffer");
         this.updateStatus("disabled");
         this.clearBuffer();
+        // Schedule next cycle
+        if (!this.isPaused) {
+          this.scheduleNextCycle(this.cycleIntervalSeconds);
+        }
         return;
       }
 
@@ -260,7 +273,12 @@ export class DachiStreamService {
       // Clear buffer for next cycle
       this.clearBuffer();
       this.updateStatus("collecting");
-      this.addLog("info", "Buffer cleared - waiting for next cycle");
+      this.addLog("info", "Buffer cleared - scheduling next cycle");
+      
+      // Schedule next cycle if not paused
+      if (!this.isPaused) {
+        this.scheduleNextCycle(this.cycleIntervalSeconds);
+      }
     }
   }
 

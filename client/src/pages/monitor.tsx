@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ChatMessage, VoiceAiResponse } from "@shared/schema";
+import WorkflowChart, { type WorkflowStage, type StageStatus } from "@/components/workflow-chart";
 
 interface DachiStreamState {
   status: string;
@@ -395,6 +396,23 @@ export default function Monitor() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Visual Workflow Chart */}
+      <WorkflowChart
+        currentStage={streamStatus?.status === "collecting" ? "waiting-pool" : "waiting-pool"}
+        stageStatuses={{
+          "waiting-pool": streamStatus?.status === "collecting" ? "active" : "idle",
+          "waiting-mic": "idle",
+          "collecting-pool": "idle",
+          "collecting-mic": "idle",
+          "decision": "idle",
+          "ai-setup-mic": "idle",
+          "ai-setup-pool": "idle",
+          "text-response": "idle",
+          "voice": "idle",
+          "complete": "idle",
+        }}
+      />
     </div>
   );
 }

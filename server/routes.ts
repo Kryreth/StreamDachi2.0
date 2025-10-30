@@ -617,10 +617,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DachiStream Controls - imported from index.ts where service is initialized
+  // DachiStream Controls
   app.post("/api/dachistream/pause", async (req, res) => {
     try {
-      // This will be handled by the DachiStream service instance in index.ts
+      const dachiStreamService = (app as any).dachiStreamService;
+      if (!dachiStreamService) {
+        return res.status(503).json({ error: "DachiStream service not available" });
+      }
+      dachiStreamService.pause();
       res.json({ success: true, message: "DachiStream paused" });
     } catch (error) {
       console.error("Error pausing DachiStream:", error);
@@ -630,11 +634,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/dachistream/resume", async (req, res) => {
     try {
-      // This will be handled by the DachiStream service instance in index.ts
+      const dachiStreamService = (app as any).dachiStreamService;
+      if (!dachiStreamService) {
+        return res.status(503).json({ error: "DachiStream service not available" });
+      }
+      dachiStreamService.resume();
       res.json({ success: true, message: "DachiStream resumed" });
     } catch (error) {
       console.error("Error resuming DachiStream:", error);
       res.status(500).json({ error: "Failed to resume DachiStream" });
+    }
+  });
+
+  app.post("/api/dachistream/update-interval", async (req, res) => {
+    try {
+      const { intervalSeconds } = req.body;
+      if (!intervalSeconds || intervalSeconds < 1 || intervalSeconds > 300) {
+        return res.status(400).json({ error: "Interval must be between 1 and 300 seconds" });
+      }
+      const dachiStreamService = (app as any).dachiStreamService;
+      if (!dachiStreamService) {
+        return res.status(503).json({ error: "DachiStream service not available" });
+      }
+      dachiStreamService.updateCycleInterval(intervalSeconds);
+      res.json({ success: true, intervalSeconds });
+    } catch (error) {
+      console.error("Error updating DachiStream interval:", error);
+      res.status(500).json({ error: "Failed to update interval" });
+    }
+  });
+
+  app.get("/api/dachistream/interval", (req, res) => {
+    try {
+      const dachiStreamService = (app as any).dachiStreamService;
+      if (!dachiStreamService) {
+        return res.status(503).json({ error: "DachiStream service not available" });
+      }
+      res.json({ intervalSeconds: dachiStreamService.getCycleInterval() });
+    } catch (error) {
+      console.error("Error getting DachiStream interval:", error);
+      res.status(500).json({ error: "Failed to get interval" });
     }
   });
   // Speech-to-Text for Streamer Voice

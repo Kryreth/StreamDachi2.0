@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-// User Profiles Table - Track VIP/Mod/Subscriber status
+// User Profiles Table - Track VIP/Mod/Subscriber status + Personality Profiling
 export const userProfiles = pgTable("user_profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: text("user_id").notNull().unique(), // Twitch user ID
@@ -17,6 +17,25 @@ export const userProfiles = pgTable("user_profiles", {
   firstSeen: timestamp("first_seen").notNull().defaultNow(),
   lastSeen: timestamp("last_seen").notNull().defaultNow(),
   shoutoutLastGiven: timestamp("shoutout_last_given"),
+  
+  // Personality Tracking (1-10 scale, measured over time by AI)
+  humorLevel: integer("humor_level").default(5), // How funny/lighthearted the user is
+  knowledgeLevel: integer("knowledge_level").default(5), // How knowledgeable/informative
+  bluntnessLevel: integer("bluntness_level").default(5), // How direct/honest
+  rudenessLevel: integer("rudeness_level").default(5), // How rude/toxic (lower is better)
+  
+  // Profile Information (NO PII - usernames, roles, preferences only)
+  timezone: text("timezone"), // e.g., "America/New_York"
+  twitchUrl: text("twitch_url"), // Full Twitch channel URL
+  previousNames: jsonb("previous_names").$type<string[]>().default(sql`'[]'::jsonb`), // Name change history
+  hobbies: jsonb("hobbies").$type<string[]>().default(sql`'[]'::jsonb`), // User interests
+  likes: jsonb("likes").$type<string[]>().default(sql`'[]'::jsonb`), // Things they enjoy
+  dislikes: jsonb("dislikes").$type<string[]>().default(sql`'[]'::jsonb`), // Things they don't like
+  
+  // Social Media & Links (URLs only, no PII)
+  profilePictureUrl: text("profile_picture_url"), // Twitch avatar URL
+  socials: jsonb("socials").$type<Record<string, string>>().default(sql`'{}'::jsonb`), // {twitter: "url", discord: "username", etc}
+  customLinks: jsonb("custom_links").$type<Array<{title: string, url: string}>>().default(sql`'[]'::jsonb`), // Custom links/images
 });
 
 // User Insights Table - AI Learning Engine

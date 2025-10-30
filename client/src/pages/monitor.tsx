@@ -1,899 +1,374 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Activity, MessageSquare, Clock, Zap, Mic, MicOff, Volume2, VolumeX, Play, Pause, Rocket, ExternalLink, Users, Loader2, Copy } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Play, Pause, ChevronDown, ChevronUp, Clock, MessageSquare, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useVoiceRecognition } from "@/hooks/use-voice-recognition";
-import { useTextToSpeech } from "@/hooks/use-text-to-speech";
-import { usePuterTTS } from "@/hooks/use-puter-tts";
 import type { ChatMessage, VoiceAiResponse } from "@shared/schema";
 
-// Voice AI Response History Component
-function VoiceResponseHistory() {
-  const { toast } = useToast();
-  const { data: responses = [], isLoading } = useQuery<VoiceAiResponse[]>({
-    queryKey: ["/api/voice/responses"],
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: "Text copied to clipboard",
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground">
-        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-        Loading history...
-      </div>
-    );
-  }
-
-  if (responses.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        No voice responses yet. Start speaking to see your AI-rephrased messages here!
-      </div>
-    );
-  }
-
-  return (
-    <ScrollArea className="h-[400px]">
-      <div className="space-y-4">
-        {responses.map((response) => (
-          <div
-            key={response.id}
-            className="p-4 rounded-lg border bg-card hover-elevate"
-            data-testid={`voice-response-${response.id}`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {format(new Date(response.timestamp), "MMM d, h:mm:ss a")}
-              </span>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs text-muted-foreground">Original:</Label>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2"
-                    onClick={() => copyToClipboard(response.originalText)}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-                <p className="text-sm bg-muted/50 p-2 rounded border">{response.originalText}</p>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label className="text-xs text-primary">AI Rephrased:</Label>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2"
-                    onClick={() => copyToClipboard(response.rephrasedText)}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-                <p className="text-sm bg-primary/10 p-2 rounded border border-primary/20 font-medium">
-                  {response.rephrasedText}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
-  );
-}
-
-type DachiStreamStatus = "idle" | "collecting" | "processing" | "selecting_message" | "building_context" | "waiting_for_ai" | "disabled" | "paused";
-
-interface DachiStreamLog {
-  timestamp: Date;
-  type: "info" | "status" | "message" | "selection" | "ai_response" | "error";
-  message: string;
-  data?: any;
-}
-
 interface DachiStreamState {
-  status: DachiStreamStatus;
+  status: string;
   bufferCount: number;
-  lastCycleTime: Date | null;
-  nextCycleTime: Date | null;
+  lastCycleTime: string | null;
+  nextCycleTime: string | null;
   secondsUntilNextCycle: number;
-  selectedMessage: ChatMessage | null;
-  aiResponse: string | null;
-  error: string | null;
 }
-
-interface VIPStream {
-  id: string;
-  user_id: string;
-  user_login: string;
-  user_name: string;
-  game_id: string;
-  game_name: string;
-  type: string;
-  title: string;
-  viewer_count: number;
-  started_at: string;
-  language: string;
-  thumbnail_url: string;
-}
-
-const statusColors: Record<DachiStreamStatus, string> = {
-  idle: "bg-gray-500",
-  collecting: "bg-blue-500",
-  processing: "bg-yellow-500",
-  selecting_message: "bg-purple-500",
-  building_context: "bg-indigo-500",
-  waiting_for_ai: "bg-orange-500",
-  disabled: "bg-gray-400",
-  paused: "bg-red-500",
-};
-
-const statusLabels: Record<DachiStreamStatus, string> = {
-  idle: "Idle",
-  collecting: "Collecting Messages",
-  processing: "Processing Buffer",
-  selecting_message: "Selecting Message",
-  building_context: "Building Context",
-  waiting_for_ai: "Waiting for AI",
-  disabled: "Disabled",
-  paused: "Paused",
-};
-
-const logTypeColors: Record<DachiStreamLog["type"], string> = {
-  info: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  status: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  message: "bg-green-500/10 text-green-400 border-green-500/20",
-  selection: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  ai_response: "bg-pink-500/10 text-pink-400 border-pink-500/20",
-  error: "bg-red-500/10 text-red-400 border-red-500/20",
-};
 
 export default function Monitor() {
-  const { toast } = useToast();
-  const [selectedStream, setSelectedStream] = useState<VIPStream | null>(null);
-  const [streamMuted, setStreamMuted] = useState(true);
-  const [dachipoolPaused, setDachipoolPaused] = useState(false);
-  const [aiVoiceEnabled, setAiVoiceEnabled] = useState(false); // Separate toggle for AI voice TTS (Puter)
-  const [vipShoutoutAudioEnabled, setVipShoutoutAudioEnabled] = useState(false); // For VIP shoutouts only (Web Speech API)
+  const [isPaused, setIsPaused] = useState(false);
+  const [cycleInterval, setCycleInterval] = useState(15);
+  const [collectedMessagesOpen, setCollectedMessagesOpen] = useState(false);
+  const [aiResponsesOpen, setAiResponsesOpen] = useState(false);
+  const [aiResponseLimit, setAiResponseLimit] = useState<number>(10);
 
-  const tts = useTextToSpeech(); // For VIP shoutouts
-  const puterTTS = usePuterTTS(); // For AI voice responses - high quality Neural/Generative
-
-  const {
-    isListening,
-    transcript,
-    enhancedText,
-    startListening,
-    stopListening,
-    resetTranscript,
-    isSupported: voiceSupported,
-    isEnhancing,
-  } = useVoiceRecognition({
-    onEnhanced: (original, enhanced) => {
-      toast({
-        title: "Text Rephrased!",
-        description: `"${enhanced}"`,
-        duration: 5000,
-      });
-      
-      // Auto-speak if AI voice is enabled (using Puter TTS for high quality)
-      if (aiVoiceEnabled && puterTTS.isSupported) {
-        console.log(`[Puter TTS] Speaking rephrased text with ${puterTTS.settings.engine} engine`);
-        puterTTS.speak(enhanced);
-      }
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Voice Error",
-        description: error,
-      });
-    },
-    autoEnhance: true, // Auto-enhance after 5 seconds of silence
-    continuous: true,
-  });
-
-  // Fetch TTS settings from database
-  const { data: settings } = useQuery<any[]>({
-    queryKey: ["/api/settings"],
-  });
-
-  // Listen for VIP shoutout events and trigger TTS
-  useEffect(() => {
-    const handleShoutout = (event: any) => {
-      const { username, message } = event.detail;
-      
-      // Check if TTS is enabled in settings
-      const settingsData = settings?.[0];
-      if (settingsData?.ttsEnabled && tts.isSupported) {
-        console.log("Speaking shoutout for", username);
-        
-        // Configure TTS with saved settings
-        tts.updateSettings({
-          enabled: true,
-          voice: settingsData.ttsVoice,
-          pitch: (settingsData.ttsPitch || 10) / 10,
-          rate: (settingsData.ttsRate || 10) / 10,
-          volume: (settingsData.ttsVolume || 10) / 10,
-        });
-        
-        // Speak the shoutout message
-        tts.speak(message);
-        
-        // Show toast notification
-        toast({
-          title: "VIP Shoutout!",
-          description: message,
-          duration: 5000,
-        });
-      }
-    };
-
-    window.addEventListener("vip_shoutout", handleShoutout);
-    return () => window.removeEventListener("vip_shoutout", handleShoutout);
-  }, [settings, tts, toast]);
-
-  // Auto-pause DachiPool when speaking
-  useEffect(() => {
-    if (isListening && !dachipoolPaused) {
-      setDachipoolPaused(true);
-    }
-  }, [isListening, dachipoolPaused]);
-
-  const toggleMic = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      resetTranscript();
-      startListening();
-    }
-  };
-
-  const { data: state, isLoading: stateLoading } = useQuery<DachiStreamState>({
+  // Fetch DachiStream status
+  const { data: streamStatus } = useQuery<DachiStreamState>({
     queryKey: ["/api/dachistream/status"],
-    refetchInterval: 1000,
+    refetchInterval: 1000, // Update every second for countdown
   });
 
-  const { data: logs = [], isLoading: logsLoading } = useQuery<DachiStreamLog[]>({
-    queryKey: ["/api/dachistream/logs"],
-    refetchInterval: 2000,
+  // Fetch current interval
+  const { data: intervalData } = useQuery<{ intervalSeconds: number }>({
+    queryKey: ["/api/dachistream/interval"],
   });
 
-  const { data: buffer = [], isLoading: bufferLoading } = useQuery<ChatMessage[]>({
+  // Fetch buffer messages
+  const { data: bufferMessages = [] } = useQuery<ChatMessage[]>({
     queryKey: ["/api/dachistream/buffer"],
-    refetchInterval: 1000,
+    refetchInterval: 2000, // Update every 2 seconds
   });
 
-  const { data: vipStreams = [], isLoading: vipStreamsLoading } = useQuery<VIPStream[]>({
-    queryKey: ["/api/users/vips/streams"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+  // Fetch AI responses
+  const { data: allAiResponses = [] } = useQuery<VoiceAiResponse[]>({
+    queryKey: ["/api/voice/responses"],
+    refetchInterval: 5000, // Update every 5 seconds
   });
 
-  const aiResponseLogs = logs.filter(log => log.type === "ai_response");
+  // Sync interval from server
+  useEffect(() => {
+    if (intervalData?.intervalSeconds) {
+      setCycleInterval(intervalData.intervalSeconds);
+    }
+  }, [intervalData]);
 
-  const handleRaid = async (stream: VIPStream) => {
-    try {
-      await apiRequest("POST", "/api/raids/start", { toUsername: stream.user_login });
+  // Sync pause state from server status
+  useEffect(() => {
+    if (streamStatus?.status === "paused") {
+      setIsPaused(true);
+    } else if (streamStatus?.status === "collecting" || streamStatus?.status === "processing") {
+      setIsPaused(false);
+    }
+  }, [streamStatus?.status]);
 
-      toast({
-        title: "Raid Started!",
-        description: `Raiding ${stream.user_name} with your viewers!`,
-      });
+  // Pause mutation
+  const pauseMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/dachistream/pause", "POST");
+    },
+    onSuccess: () => {
+      setIsPaused(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/status"] });
+    },
+  });
 
-      queryClient.invalidateQueries({ queryKey: ["/api/raids"] });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Raid Failed",
-        description: error.message || "Failed to start raid",
-      });
+  // Resume mutation
+  const resumeMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/dachistream/resume", "POST");
+    },
+    onSuccess: () => {
+      setIsPaused(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/status"] });
+    },
+  });
+
+  // Update interval mutation
+  const updateIntervalMutation = useMutation({
+    mutationFn: async (intervalSeconds: number) => {
+      return await apiRequest("/api/dachistream/update-interval", "POST", { intervalSeconds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/interval"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dachistream/status"] });
+    },
+  });
+
+  const handlePauseToggle = () => {
+    if (isPaused) {
+      resumeMutation.mutate();
+    } else {
+      pauseMutation.mutate();
     }
   };
 
-  const getStreamEmbedUrl = (stream: VIPStream) => {
-    return `https://player.twitch.tv/?channel=${stream.user_login}&parent=${window.location.hostname}&muted=${streamMuted}`;
+  const handleIntervalChange = (value: number[]) => {
+    const newInterval = value[0];
+    setCycleInterval(newInterval);
+    updateIntervalMutation.mutate(newInterval);
   };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins > 0) {
+      return `${mins}m ${secs}s`;
+    }
+    return `${secs}s`;
+  };
+
+  // Get limited AI responses based on user selection
+  const limitedAiResponses = allAiResponses.slice(0, aiResponseLimit);
 
   return (
-    <div className="h-full overflow-auto" data-testid="page-monitor">
-      <div className="container mx-auto p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">StreamDachi Monitor</h1>
-          <p className="text-muted-foreground">Real-time AI monitoring and voice controls</p>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-monitor">
+          Monitor
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Real-time DachiStream monitoring and controls
+        </p>
+      </div>
 
-        {/* Voice & DachiPool Controls */}
-        <Card data-testid="card-voice-controls">
+      {/* 3-Module Layout */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Module 1: Status Collecting Messages */}
+        <Card data-testid="card-status">
           <CardHeader>
-            <CardTitle>StreamDachi Controls</CardTitle>
-            <CardDescription>
-              {voiceSupported 
-                ? "Continuous voice-to-text with automatic AI rephrasing after 5 seconds of silence"
-                : "Voice recognition not supported in this browser"}
-            </CardDescription>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Status Collecting Messages
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant={isListening ? "default" : "outline"}
-                  size="default"
-                  onClick={toggleMic}
-                  disabled={!voiceSupported}
-                  data-testid="button-toggle-mic"
-                  className="min-w-[140px]"
-                >
-                  {isListening ? (
-                    <>
-                      <Mic className="h-4 w-4 mr-2 animate-pulse" />
-                      Listening...
-                    </>
-                  ) : (
-                    <>
-                      <MicOff className="h-4 w-4 mr-2" />
-                      Start Speaking
-                    </>
-                  )}
-                </Button>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="dachipool-pause"
-                    checked={dachipoolPaused}
-                    onCheckedChange={setDachipoolPaused}
-                    data-testid="toggle-dachipool"
-                  />
-                  <Label htmlFor="dachipool-pause" className="flex items-center gap-2 cursor-pointer">
-                    {dachipoolPaused ? <Pause className="h-4 w-4 text-muted-foreground" /> : <Play className="h-4 w-4 text-primary" />}
-                    <span>StreamDachi AI {dachipoolPaused ? "Paused" : "Active"}</span>
-                  </Label>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 pt-2 border-t">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="ai-voice-enabled"
-                    checked={aiVoiceEnabled}
-                    onCheckedChange={setAiVoiceEnabled}
-                    data-testid="toggle-ai-voice"
-                    disabled={!puterTTS.isSupported}
-                  />
-                  <Label htmlFor="ai-voice-enabled" className="flex items-center gap-2 cursor-pointer">
-                    {aiVoiceEnabled ? <Volume2 className="h-4 w-4 text-primary" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-                    <span className="font-medium">AI Voice (Puter Neural TTS)</span>
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="vip-shoutout-audio"
-                    checked={vipShoutoutAudioEnabled}
-                    onCheckedChange={setVipShoutoutAudioEnabled}
-                    data-testid="toggle-vip-shoutout-audio"
-                    disabled={!tts.isSupported}
-                  />
-                  <Label htmlFor="vip-shoutout-audio" className="flex items-center gap-2 cursor-pointer">
-                    {vipShoutoutAudioEnabled ? <Volume2 className="h-4 w-4 text-primary" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-                    <span className="font-medium">VIP Shoutout Audio (Web Speech)</span>
-                  </Label>
-                </div>
-              </div>
+            {/* Status Badge */}
+            <div className="flex items-center justify-center">
+              <Badge 
+                variant={isPaused ? "secondary" : "default"}
+                className="text-lg py-2 px-4"
+                data-testid="badge-status"
+              >
+                {isPaused ? "PAUSED" : streamStatus?.status?.toUpperCase() || "IDLE"}
+              </Badge>
             </div>
 
-            {/* Puter TTS Engine Settings */}
-            {puterTTS.isSupported && aiVoiceEnabled && (
-              <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-2 text-primary">
-                  <Zap className="h-4 w-4" />
-                  AI Voice Settings (Puter.js - Free Unlimited)
-                </h4>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Voice</Label>
-                  <select
-                    className="w-full p-2 rounded-md border bg-background text-sm"
-                    value={puterTTS.settings.voice}
-                    onChange={(e) => puterTTS.updateSettings({ voice: e.target.value })}
-                    data-testid="select-puter-voice"
-                  >
-                    <optgroup label="🇺🇸 US English - Male">
-                      {puterTTS.voices.filter(v => v.region === "US" && v.gender === "Male").map(voice => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🇺🇸 US English - Female">
-                      {puterTTS.voices.filter(v => v.region === "US" && v.gender === "Female").map(voice => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🇬🇧 British English">
-                      {puterTTS.voices.filter(v => v.region === "UK").map(voice => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.gender})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🇦🇺 Australian English">
-                      {puterTTS.voices.filter(v => v.region === "Australia").map(voice => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.gender})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🇮🇳 Indian English">
-                      {puterTTS.voices.filter(v => v.region === "India").map(voice => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.gender})
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </div>
+            {/* Countdown Timer */}
+            <div className="text-center">
+              <div className="text-4xl font-bold text-primary" data-testid="text-countdown">
+                {formatTime(streamStatus?.secondsUntilNextCycle || cycleInterval)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Until next cycle</p>
+            </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Voice Quality</Label>
-                  <select
-                    className="w-full p-2 rounded-md border bg-background text-sm"
-                    value={puterTTS.settings.engine}
-                    onChange={(e) => puterTTS.updateSettings({ engine: e.target.value as "standard" | "neural" | "generative" })}
-                    data-testid="select-puter-engine"
-                  >
-                    <option value="standard">Standard (Good quality, fast)</option>
-                    <option value="neural">Neural (High quality, natural)</option>
-                    <option value="generative">Generative (Best quality, most human-like)</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">
-                    {puterTTS.settings.engine === "generative" && "🔥 Using the most advanced AI voice technology"}
-                    {puterTTS.settings.engine === "neural" && "⚡ Using neural network-based synthesis"}
-                    {puterTTS.settings.engine === "standard" && "✓ Using standard concatenative synthesis"}
-                  </p>
-                </div>
+            {/* Pause/Resume Button */}
+            <Button
+              onClick={handlePauseToggle}
+              variant={isPaused ? "default" : "secondary"}
+              className="w-full"
+              data-testid="button-pause-resume"
+            >
+              {isPaused ? (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="h-4 w-4 mr-2" />
+                  Pause
+                </>
+              )}
+            </Button>
 
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Volume: {Math.round(puterTTS.settings.volume * 100)}%</Label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={puterTTS.settings.volume}
-                    onChange={(e) => puterTTS.updateSettings({ volume: parseFloat(e.target.value) })}
-                    className="w-full"
-                    data-testid="slider-puter-volume"
-                  />
-                </div>
+            {/* Timer Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Cycle Interval</label>
+                <span className="text-sm text-muted-foreground" data-testid="text-interval">
+                  {formatTime(cycleInterval)}
+                </span>
+              </div>
+              <Slider
+                value={[cycleInterval]}
+                onValueChange={handleIntervalChange}
+                min={1}
+                max={300}
+                step={1}
+                className="w-full"
+                data-testid="slider-interval"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1s</span>
+                <span>5m</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const voice = puterTTS.voices.find(v => v.id === puterTTS.settings.voice);
-                    puterTTS.speak(`Hello! I'm ${voice?.name}, speaking with ${puterTTS.settings.engine} quality. Welcome to StreamDachi!`);
-                  }}
-                  disabled={puterTTS.isSpeaking}
-                  className="w-full"
-                  data-testid="button-test-puter-tts"
-                >
-                  {puterTTS.isSpeaking ? (
+        {/* Module 2: Collected Messages */}
+        <Card data-testid="card-collected-messages">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Collected Messages
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Message Count */}
+            <div className="text-center">
+              <div className="text-4xl font-bold text-primary" data-testid="text-buffer-count">
+                {streamStatus?.bufferCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Messages in current cycle</p>
+            </div>
+
+            {/* Collapsible Dropdown */}
+            <Collapsible open={collectedMessagesOpen} onOpenChange={setCollectedMessagesOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full" data-testid="button-toggle-collected">
+                  {collectedMessagesOpen ? (
                     <>
-                      <Volume2 className="h-4 w-4 mr-2 animate-pulse" />
-                      Playing Test...
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Hide Messages
                     </>
                   ) : (
                     <>
-                      <Volume2 className="h-4 w-4 mr-2" />
-                      Test Voice
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                      View Messages
                     </>
                   )}
                 </Button>
-              </div>
-            )}
-
-            {/* Voice Transcription Display */}
-            {(transcript || enhancedText) && (
-              <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
-                {transcript && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">What You Said:</Label>
-                    <Textarea
-                      value={transcript}
-                      readOnly
-                      className="mt-1 min-h-[60px] resize-none"
-                      data-testid="text-transcript"
-                    />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                {bufferMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No messages collected yet
                   </div>
-                )}
-                {isEnhancing && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>AI is rephrasing...</span>
-                  </div>
-                )}
-                {enhancedText && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">AI Rephrased (Same Meaning, Different Words):</Label>
-                    <Textarea
-                      value={enhancedText}
-                      readOnly
-                      className="mt-1 min-h-[60px] resize-none bg-primary/10 border-primary/20"
-                      data-testid="text-enhanced"
-                    />
-                  </div>
-                )}
-                {enhancedText && (
-                  <div className="flex gap-2 items-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(enhancedText);
-                        toast({
-                          title: "Copied!",
-                          description: "Rephrased text copied to clipboard",
-                        });
-                      }}
-                      data-testid="button-copy-enhanced"
-                    >
-                      Copy Text
-                    </Button>
-                    {aiVoiceEnabled && tts.isSupported && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Volume2 className="h-3 w-3" />
-                        Auto-spoken aloud
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Voice AI Response History */}
-        <Card data-testid="card-voice-history">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-primary" />
-              Voice AI Response History
-            </CardTitle>
-            <CardDescription>
-              Recent voice transcriptions and AI rephrasing
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VoiceResponseHistory />
-          </CardContent>
-        </Card>
-
-        {/* VIP Raid List */}
-        <Card data-testid="card-vip-streams">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              VIP Streams Online
-              {vipStreams.length > 0 && (
-                <Badge variant="secondary">{vipStreams.length}</Badge>
-              )}
-            </CardTitle>
-            <CardDescription>Quick access to raid your VIPs who are currently live</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {vipStreamsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading VIP streams...</div>
-            ) : vipStreams.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No VIPs currently streaming. They'll appear here when they go live!</div>
-            ) : (
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-3">
-                  {vipStreams.map((stream) => (
-                    <div
-                      key={stream.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-card border hover-elevate"
-                      data-testid={`vip-stream-${stream.user_id}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-foreground">{stream.user_name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse mr-1" />
-                            LIVE
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {stream.viewer_count.toLocaleString()} viewers
-                          </span>
-                          <span className="truncate">{stream.game_name}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedStream(stream)}
-                          data-testid={`button-view-stream-${stream.user_id}`}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleRaid(stream)}
-                          data-testid={`button-raid-stream-${stream.user_id}`}
-                        >
-                          <Rocket className="h-4 w-4 mr-1" />
-                          Raid
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Stream Player Dialog */}
-        <Dialog open={!!selectedStream} onOpenChange={() => setSelectedStream(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between">
-                <span>{selectedStream?.user_name}'s Stream</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setStreamMuted(!streamMuted)}
-                    data-testid="button-toggle-stream-audio"
-                  >
-                    {streamMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </DialogTitle>
-            </DialogHeader>
-            {selectedStream && (
-              <div className="aspect-video w-full">
-                <iframe
-                  src={getStreamEmbedUrl(selectedStream)}
-                  className="w-full h-full rounded-md"
-                  allowFullScreen
-                  title={`${selectedStream.user_name}'s stream`}
-                />
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card data-testid="card-status">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {stateLoading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : state ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-3 w-3 rounded-full ${statusColors[state.status]} animate-pulse`} />
-                    <span className="text-2xl font-bold" data-testid="text-status">
-                      {statusLabels[state.status]}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">Next cycle in</div>
-                      <div className="text-xl font-bold text-primary" data-testid="text-countdown">
-                        {state.secondsUntilNextCycle} seconds
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    {state.lastCycleTime && (
-                      <div>Last cycle: {format(new Date(state.lastCycleTime), "HH:mm:ss")}</div>
-                    )}
-                    {state.nextCycleTime && (
-                      <div>Next cycle: {format(new Date(state.nextCycleTime), "HH:mm:ss")}</div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">No data</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-buffer">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Buffer</CardTitle>
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {bufferLoading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="text-2xl font-bold" data-testid="text-buffer-count">
-                    {buffer.length} messages
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {state?.secondsUntilNextCycle !== undefined && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span data-testid="text-countdown">
-                          {state.secondsUntilNextCycle}s until next cycle
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-ai-responses">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">AI Responses</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="text-2xl font-bold" data-testid="text-ai-response-count">
-                  {aiResponseLogs.length}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Total generated
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card data-testid="card-current-buffer">
-            <CardHeader>
-              <CardTitle>Current Buffer</CardTitle>
-              <CardDescription>Messages waiting for processing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                {bufferLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading buffer...</div>
-                ) : buffer.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">Buffer is empty</div>
                 ) : (
-                  <div className="space-y-2">
-                    {buffer.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 rounded-md bg-card border hover-elevate"
-                        data-testid={`buffer-message-${idx}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-sm">{msg.username}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(msg.timestamp), "HH:mm:ss")}
-                          </span>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {bufferMessages.map((msg, index) => (
+                        <div
+                          key={index}
+                          className="p-3 rounded-lg border bg-card text-sm"
+                          data-testid={`message-${index}`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-primary">{msg.username}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(msg.timestamp), "HH:mm:ss")}
+                            </span>
+                          </div>
+                          <p className="text-foreground">{msg.message}</p>
                         </div>
-                        <p className="text-sm">{msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          <Card data-testid="card-event-log">
-            <CardHeader>
-              <CardTitle>Event Log</CardTitle>
-              <CardDescription>Real-time system events</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px]">
-                {logsLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading logs...</div>
-                ) : logs.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">No logs yet</div>
-                ) : (
-                  <div className="space-y-2">
-                    {[...logs].reverse().map((log, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-md border ${logTypeColors[log.type]}`}
-                        data-testid={`log-entry-${idx}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">
-                            {log.type}
-                          </Badge>
-                          <span className="text-xs opacity-70">
-                            {format(new Date(log.timestamp), "HH:mm:ss.SSS")}
-                          </span>
-                        </div>
-                        <p className="text-sm">{log.message}</p>
-                        {log.data && log.type !== "ai_response" && (
-                          <pre className="text-xs mt-2 opacity-60 overflow-x-auto">
-                            {JSON.stringify(log.data, null, 2)}
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card data-testid="card-ai-responses-list">
-          <CardHeader>
-            <CardTitle>AI Response History</CardTitle>
-            <CardDescription>All AI-generated responses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px]">
-              {aiResponseLogs.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No AI responses yet</div>
-              ) : (
-                <div className="space-y-4">
-                  {[...aiResponseLogs].reverse().map((log, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-md bg-card border hover-elevate"
-                      data-testid={`ai-response-${idx}`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(log.timestamp), "PPpp")}
-                        </span>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {log.data?.fullResponse || log.message}
-                      </p>
-                      {log.data?.length && (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Length: {log.data.length} characters
-                        </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+                  </ScrollArea>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </Card>
+
+        {/* Module 3: AI Responses */}
+        <Card data-testid="card-ai-responses">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              AI Responses
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Response Count */}
+            <div className="text-center">
+              <div className="text-4xl font-bold text-primary" data-testid="text-ai-count">
+                {allAiResponses.length}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Total AI responses</p>
+            </div>
+
+            {/* Response Limit Selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Show Last</label>
+              <Select
+                value={aiResponseLimit.toString()}
+                onValueChange={(value) => setAiResponseLimit(parseInt(value))}
+              >
+                <SelectTrigger data-testid="select-ai-limit">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 responses</SelectItem>
+                  <SelectItem value="10">10 responses</SelectItem>
+                  <SelectItem value="25">25 responses</SelectItem>
+                  <SelectItem value="50">50 responses</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Collapsible Dropdown */}
+            <Collapsible open={aiResponsesOpen} onOpenChange={setAiResponsesOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full" data-testid="button-toggle-ai">
+                  {aiResponsesOpen ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-2" />
+                      Hide Responses
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-2" />
+                      View Responses
+                    </>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                {limitedAiResponses.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No AI responses yet
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-3">
+                      {limitedAiResponses.map((response) => (
+                        <div
+                          key={response.id}
+                          className="p-3 rounded-lg border bg-card text-sm"
+                          data-testid={`ai-response-${response.id}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(response.timestamp), "MMM d, HH:mm:ss")}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Original:</p>
+                              <p className="text-foreground bg-muted/30 p-2 rounded">
+                                {response.originalText}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-primary mb-1">AI Rephrased:</p>
+                              <p className="text-foreground bg-primary/10 p-2 rounded border border-primary/20 font-medium">
+                                {response.rephrasedText}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
       </div>

@@ -71,8 +71,8 @@ export class DachiStreamService {
   }
 
   updateCycleInterval(intervalSeconds: number) {
-    if (intervalSeconds < 5 || intervalSeconds > 60) {
-      console.warn("Cycle interval must be between 5 and 60 seconds");
+    if (intervalSeconds < 1 || intervalSeconds > 300) {
+      console.warn("Cycle interval must be between 1 and 300 seconds");
       return;
     }
     
@@ -362,11 +362,11 @@ export class DachiStreamService {
   }
   
   getState(): DachiStreamState {
-    const nextCycleTime = this.lastCycleTime ? new Date(this.lastCycleTime.getTime() + 15000) : null;
+    const nextCycleTime = this.lastCycleTime ? new Date(this.lastCycleTime.getTime() + this.cycleIntervalSeconds * 1000) : null;
     const now = new Date();
     const secondsUntilNextCycle = nextCycleTime 
       ? Math.max(0, Math.floor((nextCycleTime.getTime() - now.getTime()) / 1000))
-      : 15;
+      : this.cycleIntervalSeconds;
     
     return {
       status: this.currentStatus,
@@ -378,6 +378,10 @@ export class DachiStreamService {
       aiResponse: null,
       error: null,
     };
+  }
+  
+  getCycleInterval(): number {
+    return this.cycleIntervalSeconds;
   }
   
   getLogs(): DachiStreamLog[] {

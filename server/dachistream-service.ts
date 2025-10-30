@@ -98,15 +98,10 @@ export class DachiStreamService {
     
     this.cycleIntervalSeconds = intervalSeconds;
     
-    // Restart the timer with new timing and reset countdown
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId);
-      this.pausedAt = null;
-      this.scheduleNextCycle(this.cycleIntervalSeconds);
-      
-      this.addLog("info", `Cycle interval updated to ${this.cycleIntervalSeconds} seconds`);
-      console.log(`DachiStream cycle interval updated to ${this.cycleIntervalSeconds} seconds`);
-    }
+    // Just update the interval for next cycle - don't reset current countdown
+    this.addLog("info", `Cycle interval updated to ${this.cycleIntervalSeconds} seconds (takes effect next cycle)`);
+    console.log(`DachiStream cycle interval updated to ${this.cycleIntervalSeconds} seconds (takes effect next cycle)`);
+    this.broadcastState();
   }
 
   stop() {

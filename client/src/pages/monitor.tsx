@@ -138,6 +138,103 @@ export default function Monitor() {
   // Get limited AI responses based on user selection
   const limitedAiResponses = allAiResponses.slice(0, aiResponseLimit);
 
+  // Map backend status to workflow stages
+  const getWorkflowStageFromStatus = (status: string | undefined): { stage: WorkflowStage; statuses: Record<WorkflowStage, StageStatus> } => {
+    const allIdle: Record<WorkflowStage, StageStatus> = {
+      "waiting-pool": "idle",
+      "waiting-mic": "idle",
+      "collecting-pool": "idle",
+      "collecting-mic": "idle",
+      "decision": "idle",
+      "ai-setup-mic": "idle",
+      "ai-setup-pool": "idle",
+      "text-response": "idle",
+      "voice": "idle",
+      "complete": "idle",
+    };
+
+    if (!status || status === "idle") {
+      return { stage: "waiting-pool", statuses: allIdle };
+    }
+
+    if (status === "collecting") {
+      return {
+        stage: "collecting-pool",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "success",
+          "collecting-pool": "active",
+        }
+      };
+    }
+
+    if (status === "processing") {
+      return {
+        stage: "decision",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "success",
+          "collecting-pool": "success",
+          "decision": "active",
+        }
+      };
+    }
+
+    if (status === "selecting_message") {
+      return {
+        stage: "ai-setup-pool",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "success",
+          "collecting-pool": "success",
+          "decision": "success",
+          "ai-setup-pool": "active",
+        }
+      };
+    }
+
+    if (status === "building_context") {
+      return {
+        stage: "ai-setup-pool",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "success",
+          "collecting-pool": "success",
+          "decision": "success",
+          "ai-setup-pool": "active",
+        }
+      };
+    }
+
+    if (status === "waiting_for_ai") {
+      return {
+        stage: "text-response",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "success",
+          "collecting-pool": "success",
+          "decision": "success",
+          "ai-setup-pool": "success",
+          "text-response": "active",
+        }
+      };
+    }
+
+    if (status === "paused") {
+      return {
+        stage: "waiting-pool",
+        statuses: {
+          ...allIdle,
+          "waiting-pool": "waiting-input",
+        }
+      };
+    }
+
+    return { stage: "waiting-pool", statuses: allIdle };
+  };
+
+  const workflowData = getWorkflowStageFromStatus(streamStatus?.status);
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -203,10 +300,10 @@ export default function Monitor() {
                 onClick={() => resetMutation.mutate()}
                 variant="destructive"
                 className="w-full"
-                data-testid="button-stop"
+                data-testid="button-reset"
               >
                 <Square className="h-4 w-4 mr-2" />
-                Stop
+                Reset
               </Button>
             </div>
 
@@ -399,19 +496,8 @@ export default function Monitor() {
 
       {/* Visual Workflow Chart */}
       <WorkflowChart
-        currentStage={streamStatus?.status === "collecting" ? "waiting-pool" : "waiting-pool"}
-        stageStatuses={{
-          "waiting-pool": streamStatus?.status === "collecting" ? "active" : "idle",
-          "waiting-mic": "idle",
-          "collecting-pool": "idle",
-          "collecting-mic": "idle",
-          "decision": "idle",
-          "ai-setup-mic": "idle",
-          "ai-setup-pool": "idle",
-          "text-response": "idle",
-          "voice": "idle",
-          "complete": "idle",
-        }}
+        currentStage={workflowData.stage}
+        stageStatuses={workflowData.statuses}
       />
     </div>
   );

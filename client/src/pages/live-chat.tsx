@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChatMessage } from "@/components/chat-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import type { ChatMessageWithAnalysis } from "@shared/schema";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { SiTwitch } from "react-icons/si";
 
 interface TwitchStatus {
   connected: boolean;
@@ -24,13 +21,6 @@ interface AuthenticatedUser {
 
 export default function LiveChat() {
   const { toast } = useToast();
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-
-  const { data: messages = [], isLoading } = useQuery<ChatMessageWithAnalysis[]>({
-    queryKey: ["/api/messages"],
-    refetchInterval: 2000,
-  });
 
   const { data: status, isLoading: statusLoading } = useQuery<TwitchStatus>({
     queryKey: ["/api/twitch/status"],
@@ -80,21 +70,6 @@ export default function LiveChat() {
   const isConnected = status?.connected ?? false;
   const channelName = status?.channel ?? null;
 
-  useEffect(() => {
-    if (autoScroll && scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollElement) {
-        scrollElement.scrollTop = scrollElement.scrollHeight;
-      }
-    }
-  }, [messages, autoScroll]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLDivElement;
-    const isAtBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
-    setAutoScroll(isAtBottom);
-  };
-
   return (
     <div className="h-screen flex flex-col p-6">
       <div className="mb-4">
@@ -102,78 +77,97 @@ export default function LiveChat() {
           <div>
             <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-live-chat">Live Chat</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Monitor your Twitch chat in real-time
+              Native Twitch chat with full moderation abilities
             </p>
           </div>
-          {statusLoading ? (
-            <Badge variant="outline" className="gap-2" data-testid="badge-connection-status">
-              <div className="h-2 w-2 rounded-full bg-muted-foreground animate-pulse" />
-              Checking...
-            </Badge>
-          ) : isConnected && channelName ? (
-            <Badge variant="secondary" className="gap-2" data-testid="badge-connection-status">
-              <div className="h-2 w-2 rounded-full bg-chart-2 animate-pulse" />
-              Connected to {channelName}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="gap-2" data-testid="badge-connection-status">
-              <div className="h-2 w-2 rounded-full bg-muted-foreground" />
-              Not Connected
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {isConnected && channelName && (
+              <Badge variant="default" className="gap-2" data-testid="badge-connected">
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                Connected to {channelName}
+              </Badge>
+            )}
+            {!isConnected && (
+              <Button
+                onClick={() => connectMutation.mutate()}
+                disabled={connectMutation.isPending || !authenticatedUser}
+                data-testid="button-connect"
+              >
+                <SiTwitch className="mr-2 h-4 w-4" />
+                {connectMutation.isPending ? "Connecting..." : "Connect to Twitch"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col min-h-0" data-testid="card-chat-messages">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle className="text-lg font-semibold">Messages</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 min-h-0 p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="space-y-4 w-full p-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-start gap-3 px-4">
-                    <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+      {/* Embedded Twitch Chat */}
+      <div className="flex-1 flex flex-col">
+        {isConnected && channelName ? (
+          <Card className="flex-1 flex flex-col">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SiTwitch className="h-5 w-5 text-primary" />
+                {channelName}'s Chat
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Full Twitch chat experience with native mod tools (ban, timeout, delete, etc.)
+              </p>
+            </CardHeader>
+            <CardContent className="flex-1 p-0">
+              <iframe
+                src={`https://www.twitch.tv/embed/${channelName}/chat?parent=${window.location.hostname}&darkpopout`}
+                height="100%"
+                width="100%"
+                className="rounded-b-lg"
+                data-testid="iframe-twitch-chat"
+                title={`${channelName} Twitch Chat`}
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="flex-1 flex items-center justify-center">
+            <CardContent className="text-center py-16">
+              <SiTwitch className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h2 className="text-xl font-semibold mb-2">
+                {!authenticatedUser
+                  ? "Login Required"
+                  : "Not Connected"}
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                {!authenticatedUser
+                  ? "Please log in with Twitch to connect to chat"
+                  : "Click the Connect button to start monitoring your Twitch chat"}
+              </p>
+              {authenticatedUser && !isConnected && (
+                <Button
+                  onClick={() => connectMutation.mutate()}
+                  disabled={connectMutation.isPending}
+                  size="lg"
+                  data-testid="button-connect-centered"
+                >
+                  <SiTwitch className="mr-2 h-5 w-5" />
+                  {connectMutation.isPending ? "Connecting..." : "Connect to Twitch"}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Info Card */}
+      <Card className="mt-4">
+        <CardContent className="py-3">
+          <div className="flex items-start gap-3 text-sm">
+            <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>
+            <div className="space-y-1">
+              <p className="font-medium">Native Twitch Chat Features</p>
+              <p className="text-xs text-muted-foreground">
+                This embedded chat provides all native Twitch moderation tools including: ban users, timeout users, 
+                delete messages, clear chat, slow mode, followers-only mode, subscriber mode, and all emote/badge rendering.
+              </p>
             </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4" data-testid="empty-state-messages">
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground" data-testid="text-no-messages">No messages yet</p>
-                {isConnected && channelName ? (
-                  <p className="text-xs text-muted-foreground" data-testid="text-monitoring-channel">Monitoring {channelName} - messages will appear as they come in</p>
-                ) : authenticatedUser ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground" data-testid="text-login-prompt">Connect to start monitoring your Twitch chat</p>
-                    <Button 
-                      onClick={() => connectMutation.mutate()}
-                      disabled={connectMutation.isPending}
-                      data-testid="button-connect-chat"
-                    >
-                      {connectMutation.isPending ? "Connecting..." : "Connect to Chat"}
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground" data-testid="text-login-prompt">Log in with Twitch to start monitoring chat</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <ScrollArea className="h-full" ref={scrollAreaRef} onScrollCapture={handleScroll}>
-              <div className="space-y-1">
-                {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -693,7 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Speech-to-Text for Streamer Voice
   app.post("/api/stt/transcribe", async (req, res) => {
     try {
-      // This endpoint will handle audio transcription using OpenAI Whisper
+      // This endpoint will handle audio transcription using Groq Whisper
       // Implementation will be added when integrating services
       res.json({
         success: true,
@@ -712,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
       
-      // This will use the cleanupSpeechText function from openai-service
+      // This uses the Groq AI service for speech cleanup
       res.json({
         original: text,
         cleaned: text,

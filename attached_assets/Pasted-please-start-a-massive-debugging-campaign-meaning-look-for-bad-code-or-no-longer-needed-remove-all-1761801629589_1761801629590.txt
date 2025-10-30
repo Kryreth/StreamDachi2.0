@@ -1,0 +1,57 @@
+please start a massive debugging campaign, meaning look for bad code or no longer needed, remove all aspects of OpenAi and ElevanLans, or anything else that is not really needed anymore. 
+
+
+Dashboard
+   1. Remove the Start New Stream Session completely this is no longer needed. also move the Connected to the left so we can shrink this module. and then put it to the top but to the right of  the dashboard. This needs to be done on both today and what you missed tabs.
+   
+   
+Monitor
+	1. Status Collecting Messages
+		Having an issue where the Pause does not pause the timer, same with the stop it does not Reset it, and rename from stop to Reset
+		
+	2. Timer
+		Timer is counting down from 30 seconds, however the slider does not impact the timers count duration at all, it will appear for a moment and then will reset back to 30 seconds on its own. You will see the right timer but it will only be for a brief second until defaults on 30. 
+		
+	3. Tabs
+		This is for both Collected Messages and Ai Responses. When you select the View Messages or View Responses, i dont want a drop dont, but a new screen in its spot, and you can view and scroll through the messages. you can also click on the users name to ban, timeout, change roles like mod or VIP, etc, just add some good effects. Also please add a feature if possible to see how many channel points a person has for their Profile. 
+		
+	4.	For the Workflow, I would like to have the squard boxes and circles as requested, but i would like it to loop around (almost like a flea cycle works)
+	
+	5. ERROR - EMERGENCY
+		When I type hi in Twitch Chat my response will get collected. and will go into the Collected Messages. But nothing Changes in the DachiStream Workflow, meaning it does not proceed to Stage 2. 
+	
+Database
+
+DATABASE MUST NEVER STORE PERSONAL INFORMATION LIKE SOCIAL SECURITY, PHONE NUMBERS, EMAILS, LINKS, REAL NAMES, ADDRESSES, CITIES, 
+	1. Remember that we want the following information to be stored and to be constantly updated in real time so that the ai can learn from this and other program features may use for other aspects. 
+	
+	Username/Display |	Timezone | Twitch URL | Name changes? (list names) | personality (create a generic personality list that has sliders and label them 1 - 10 and like the stream Dachi list personalities like this and it is ok to use some of the ones here)| Hobbies | Likes | Dislikes | VIP | Twitch Roles | Mod | Past Messages | 
+	
+	2. I would like to have the users Socials as well from their profile if it has it, and their profile picture. 
+	
+	3. The ability to add things like Fugitech links, add images of that person (file store) or something just custom. Also we will need to store every single reply they have on Twitch.
+
+	4.	HIGH PRIORITY - File Store, I would like to be able to store images of vtubers or soundboard effects. 
+	
+Live Chat
+	1. High Priority - I hate this design, i want the default Twitch Chat with redeems, and type to chat, mods stuff, etc. I really do not want the current design. Also give the ability to increase the font or zoom here.
+	
+	2. Soundboard - I would like to add a soundboard icon at the top of the page in between connected to Kryreth and Live Chat. Once someone clicks on that, have a new tab that is about a medium size, and have an upload sound file. have the system then upload the sound to the database.
+   
+Analytics 
+	1.	I would like to have an active graph to monitor how many chatters i have in the chat per 15 minutes and do this for a 24hr scan, after that day, store that information in the Database for 90 days (adjustable), just use the data points information we can use that for graph.
+	
+	2. Give the user the abililty to swipe through the past streams with dates near bottom center. 
+	
+	3. make the graph scalable from a hour to a single day. Also add a line for Subscribers, Bits, Redeems, all chat responses in that time frame scaling number based on graph scale. new followes, lost followers.
+	
+	4. New Followers, New Subscribers, Current Subscribers, Lost Followers (Twitch)
+	
+This is a new feature I just keep daydreaming about but lets do this. Brand new feature. Before we begin we must always ask the users permission as this feature will do a full scan of the computers specs. The reasons is I would like to make a OBS Stream Calculator
+
+The ObS Stream Calculator will check the users video graphics, sounds, memory, storage, CPU, Motherboard, basically everything you can think of. It will then give a report of what settings are absolutely the BEST for the streamer to use. if possible their internet upload and download speed from Speedtest.net from whatever the nearest. DO NOT STORE LOCATION DATA WE ONLY WANT THE SPEEDS OF THE INTERNET. if this is impossible the please create a prompted instruction and have the user type this in directly and then have then click next.
+
+I would like to add a few toggleable features like, are you a vtuber that uses VTube Studio or VeeSee, if they are looking for stability, performance, keyframe drops, Type of game you want to play and see if your computer will be compatible, with this game while streaming basically looking for like what their overall goal is for the stream. 
+
+Once the is done this program must then provide the user with an onscreen list of changes they should make to their OBS to achieve this. (I need this to be a very strong thinker and to scan these games and such using internet access with Ai(I guess an informational AI))
+

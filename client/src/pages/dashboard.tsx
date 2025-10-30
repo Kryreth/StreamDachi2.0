@@ -67,15 +67,6 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const { data: elevenLabsUsage } = useQuery<{
-    characterCount: number;
-    characterLimit: number;
-    quotaRemaining: number;
-  }>({
-    queryKey: ["/api/elevenlabs/usage"],
-    refetchInterval: 60000,
-  });
-
   const connectMutation = useMutation({
     mutationFn: async () => {
       if (!authenticatedUser) {
@@ -191,11 +182,6 @@ export default function Dashboard() {
     return acc;
   }, [] as { hour: number; count: number }[]).sort((a, b) => a.hour - b.hour);
 
-  const usagePercentage = elevenLabsUsage 
-    ? Math.round((elevenLabsUsage.characterCount / elevenLabsUsage.characterLimit) * 100)
-    : 0;
-  const isNearQuotaLimit = usagePercentage >= 85;
-
   const recentMessages = [...currentMessages].reverse().slice(0, 20);
 
   const userMessageCounts = currentMessages.reduce((acc, msg) => {
@@ -219,11 +205,56 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-dashboard">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Real-time analytics and insights for your Twitch chat
-        </p>
+      {/* Header with Twitch Connection on the right */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-dashboard">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time analytics and insights for your Twitch chat
+          </p>
+        </div>
+
+        {/* Twitch Connection - Top Right */}
+        {authenticatedUser && (
+          <Card data-testid="card-twitch-connection" className="w-auto min-w-[300px]">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base font-semibold">Twitch</CardTitle>
+                {twitchStatus?.connected ? (
+                  <Badge variant="secondary" className="gap-2" data-testid="badge-connected">
+                    <div className="h-2 w-2 rounded-full bg-chart-2 animate-pulse" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-2" data-testid="badge-disconnected">
+                    <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                    Disconnected
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm font-medium">{authenticatedUser.twitchDisplayName}</p>
+              {twitchStatus?.connected ? (
+                <p className="text-xs text-muted-foreground">
+                  {twitchStatus.messageCount} messages received
+                </p>
+              ) : (
+                <div>
+                  <Button 
+                    onClick={() => connectMutation.mutate()}
+                    disabled={connectMutation.isPending}
+                    size="sm"
+                    className="w-full"
+                    data-testid="button-connect-chat"
+                  >
+                    {connectMutation.isPending ? "Connecting..." : "Connect"}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-dashboard">
@@ -464,105 +495,6 @@ export default function Dashboard() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {authenticatedUser && (
-        <Card data-testid="card-twitch-connection">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <CardTitle className="text-lg font-semibold">Twitch Connection</CardTitle>
-              {twitchStatus?.connected ? (
-                <Badge variant="secondary" className="gap-2" data-testid="badge-connected">
-                  <div className="h-2 w-2 rounded-full bg-chart-2 animate-pulse" />
-                  Connected
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="gap-2" data-testid="badge-disconnected">
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground" />
-                  Disconnected
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Channel: {authenticatedUser.twitchDisplayName}</p>
-                {twitchStatus?.connected ? (
-                  <p className="text-xs text-muted-foreground">
-                    Monitoring {twitchStatus.channel} - {twitchStatus.messageCount} messages received
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Click connect to start monitoring your chat
-                  </p>
-                )}
-                {streamSessionStarted && (
-                  <p className="text-xs text-muted-foreground">
-                    Session started: {streamSessionStarted.toLocaleString()}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {!twitchStatus?.connected && (
-                  <Button 
-                    onClick={() => connectMutation.mutate()}
-                    disabled={connectMutation.isPending}
-                    data-testid="button-connect-chat"
-                  >
-                    {connectMutation.isPending ? "Connecting..." : "Connect to Chat"}
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={() => startStreamSessionMutation.mutate()}
-                  disabled={startStreamSessionMutation.isPending || !settings}
-                  data-testid="button-start-stream-session"
-                >
-                  {startStreamSessionMutation.isPending ? "Starting..." : "Start New Stream Session"}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {elevenLabsUsage && (
-        <Card data-testid="card-elevenlabs-usage">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">ElevenLabs Voice Usage</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isNearQuotaLimit && (
-              <Alert variant="destructive" data-testid="alert-quota-warning">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Voice quota is {usagePercentage}% full. AI will fall back to text-only responses when quota is exceeded.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Characters Used</span>
-                <span className="font-medium" data-testid="text-usage-count">
-                  {(elevenLabsUsage.characterCount || 0).toLocaleString()} / {(elevenLabsUsage.characterLimit || 10000).toLocaleString()}
-                </span>
-              </div>
-              <Progress 
-                value={usagePercentage} 
-                className={`h-3 ${isNearQuotaLimit ? 'bg-destructive/20' : ''}`}
-                data-testid="progress-usage"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{usagePercentage}% used</span>
-                <span data-testid="text-remaining-count">
-                  {(elevenLabsUsage.quotaRemaining || 10000).toLocaleString()} remaining
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Dialog open={activeDetailModal === 'messages'} onOpenChange={(open) => !open && setActiveDetailModal(null)}>
         <DialogContent className="max-w-2xl" data-testid="modal-messages">

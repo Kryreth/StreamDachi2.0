@@ -229,7 +229,7 @@ export default function SettingsPage() {
               <div className="space-y-0.5">
                 <Label htmlFor="ai-analysis">Enable AI Analysis</Label>
                 <p className="text-xs text-muted-foreground">
-                  Analyze messages with OpenAI
+                  Analyze messages with Groq AI
                 </p>
               </div>
               <Switch
@@ -417,7 +417,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-chart-2" />
-              <span className="text-sm text-foreground">OpenAI: Ready</span>
+              <span className="text-sm text-foreground">Groq AI: Ready</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-chart-2" />

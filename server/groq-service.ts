@@ -16,6 +16,46 @@ export interface EnhancedSpeechResult {
   enhanced: string;
 }
 
+export type PersonalityStyle = "Neutral" | "Quirky" | "Funny" | "Sarcastic" | "Professional";
+
+const PERSONALITY_PROMPTS: Record<PersonalityStyle, string> = {
+  Neutral: 
+    "Rephrase the spoken text to make it sound natural and conversational. " +
+    "Remove stutters and filler words (um, uh, like). " +
+    "Preserve the original meaning, intent, and tone as closely as possible. " +
+    "Make only minimal edits for clarity. " +
+    "Output only the rephrased text, nothing else.",
+  
+  Quirky:
+    "Rephrase the spoken text in a quirky, playful, and energetic tone. " +
+    "Remove stutters and filler words. " +
+    "Add exclamation marks and enthusiastic language where appropriate. " +
+    "Use fun expressions and upbeat phrasing. " +
+    "Keep the core message intact but make it sound more vibrant and playful. " +
+    "Output only the rephrased text, nothing else.",
+  
+  Funny:
+    "Rephrase the spoken text in a humorous and lighthearted way. " +
+    "Remove stutters and filler words. " +
+    "Add witty commentary or amusing phrasing where it fits naturally. " +
+    "Make it entertaining without changing the main point. " +
+    "Output only the rephrased text, nothing else.",
+  
+  Sarcastic:
+    "Rephrase the spoken text with a sarcastic, deadpan, and witty tone. " +
+    "Remove stutters and filler words. " +
+    "Add dry humor and ironic phrasing where appropriate. " +
+    "Keep the core message but deliver it with a sarcastic edge. " +
+    "Output only the rephrased text, nothing else.",
+  
+  Professional:
+    "Rephrase the spoken text in a polished, professional, and articulate manner. " +
+    "Remove stutters and filler words. " +
+    "Use clear, formal language and proper grammar. " +
+    "Maintain professionalism while preserving the original meaning. " +
+    "Output only the rephrased text, nothing else.",
+};
+
 export async function analyzeChatMessage(message: string): Promise<SentimentAnalysisResult> {
   try {
     const response = await groq.chat.completions.create({
@@ -239,19 +279,19 @@ export async function cleanupSpeechText(rawText: string): Promise<string> {
   }
 }
 
-export async function enhanceSpeechForChat(rawText: string): Promise<EnhancedSpeechResult> {
+export async function enhanceSpeechForChat(
+  rawText: string, 
+  personality: PersonalityStyle = "Neutral"
+): Promise<EnhancedSpeechResult> {
   try {
+    const systemPrompt = PERSONALITY_PROMPTS[personality] || PERSONALITY_PROMPTS.Neutral;
+    
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
-          content:
-            "Rephrase the spoken text to make it sound natural and conversational. " +
-            "Remove stutters and filler words (um, uh, like). " +
-            "Preserve the original meaning, intent, and tone as closely as possible. " +
-            "Make only minimal edits for clarity. " +
-            "Output only the rephrased text, nothing else.",
+          content: systemPrompt,
         },
         {
           role: "user",
@@ -259,7 +299,7 @@ export async function enhanceSpeechForChat(rawText: string): Promise<EnhancedSpe
         },
       ],
       max_tokens: 150,
-      temperature: 0.5,
+      temperature: personality === "Neutral" || personality === "Professional" ? 0.5 : 0.7,
     });
 
     const enhanced = response.choices[0].message.content || rawText;

@@ -1002,17 +1002,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Voice Enhancement API - with database logging
+  // Voice Enhancement API - with database logging and personality support
   app.post("/api/voice/enhance", async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, personality } = req.body;
       
       if (!text || typeof text !== "string") {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const { enhanceSpeechForChat } = await import("./groq-service");
-      const result = await enhanceSpeechForChat(text);
+      const { enhanceSpeechForChat, PersonalityStyle } = await import("./groq-service");
+      
+      // Get personality from request or settings
+      let selectedPersonality = personality;
+      if (!selectedPersonality) {
+        const allSettings = await storage.getSettings();
+        const settings = allSettings[0];
+        selectedPersonality = settings?.voiceAiPersonality || "Neutral";
+      }
+      
+      const result = await enhanceSpeechForChat(text, selectedPersonality as any);
       
       // Save to database
       try {

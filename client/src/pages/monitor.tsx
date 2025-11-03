@@ -220,6 +220,20 @@ export default function Monitor() {
     stopSpeaking();
   };
 
+  // Handle test voice button
+  const handleTestVoice = () => {
+    const testPhrases = {
+      Neutral: "Hello everyone! Thanks for tuning in to the stream today. Let's have a great time!",
+      Quirky: "Heyo chat! Ready to dive into some epic shenanigans? Let's gooo! This is gonna be wild!",
+      Funny: "What's up squad! Time to get this party started. Don't worry, I promise to only make dad jokes... maybe!",
+      Sarcastic: "Oh look, another stream. How thrilling. But seriously, glad you're here. Let's see what chaos awaits.",
+      Professional: "Good evening, everyone. Welcome to today's stream. I appreciate you joining us for what promises to be an excellent session.",
+    };
+    
+    const phrase = testPhrases[personality];
+    speakWithPuter(phrase);
+  };
+
   // Pause mutation
   const pauseMutation = useMutation({
     mutationFn: async () => {
@@ -533,10 +547,22 @@ export default function Monitor() {
 
               {/* Personality Selector */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  AI Personality
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    AI Personality
+                  </label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTestVoice}
+                    disabled={!ttsEnabled || isTtsSpeaking}
+                    data-testid="button-test-voice"
+                  >
+                    {isTtsSpeaking ? "Speaking..." : "Test Voice"}
+                  </Button>
+                </div>
                 <Select value={personality} onValueChange={(value: any) => setPersonality(value)}>
                   <SelectTrigger data-testid="select-personality">
                     <SelectValue />

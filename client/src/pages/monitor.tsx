@@ -242,8 +242,17 @@ export default function Monitor() {
   // Get limited AI responses based on user selection
   const limitedAiResponses = allAiResponses.slice(0, aiResponseLimit);
 
-  // Map backend status to workflow stages
-  const getWorkflowStageFromStatus = (status: string | undefined): { stage: WorkflowStage; statuses: Record<WorkflowStage, StageStatus> } => {
+  // Map backend status AND voice states to workflow stages
+  const getWorkflowStageFromStatus = (
+    backendStatus: string | undefined,
+    voiceState: {
+      isListening: boolean,
+      transcript: string,
+      isEnhancing: boolean,
+      isSpeaking: boolean,
+      micMuted: boolean,
+    }
+  ): { stage: WorkflowStage; statuses: Record<WorkflowStage, StageStatus> } => {
     const allIdle: Record<WorkflowStage, StageStatus> = {
       "waiting-pool": "idle",
       "waiting-mic": "idle",
@@ -257,11 +266,63 @@ export default function Monitor() {
       "complete": "idle",
     };
 
-    if (!status || status === "idle") {
+    // VOICE ACTIVITY TAKES PRIORITY - override pool cycle when user is speaking
+    // Stage 1: Mic is waiting/ready (isListening but no speech yet)
+    if (voiceState.isListening && !voiceState.micMuted && !voiceState.transcript && !voiceState.isEnhancing) {
+      return {
+        stage: "waiting-mic",
+        statuses: {
+          ...allIdle,
+          "waiting-mic": "active",
+        }
+      };
+    }
+
+    // Stage 2: Mic is collecting speech (transcript is being captured)
+    if (voiceState.isListening && voiceState.transcript && !voiceState.isEnhancing) {
+      return {
+        stage: "collecting-mic",
+        statuses: {
+          ...allIdle,
+          "waiting-mic": "success",
+          "collecting-mic": "active",
+        }
+      };
+    }
+
+    // Stage 3: AI is rephrasing the speech
+    if (voiceState.isEnhancing) {
+      return {
+        stage: "ai-setup-mic",
+        statuses: {
+          ...allIdle,
+          "waiting-mic": "success",
+          "collecting-mic": "success",
+          "ai-setup-mic": "active",
+        }
+      };
+    }
+
+    // Stage 4: TTS is playing audio
+    if (voiceState.isSpeaking) {
+      return {
+        stage: "voice",
+        statuses: {
+          ...allIdle,
+          "waiting-mic": "success",
+          "collecting-mic": "success",
+          "ai-setup-mic": "success",
+          "voice": "active",
+        }
+      };
+    }
+
+    // POOL CYCLE STATES - when no voice activity is happening
+    if (!backendStatus || backendStatus === "idle") {
       return { stage: "waiting-pool", statuses: allIdle };
     }
 
-    if (status === "collecting") {
+    if (backendStatus === "collecting") {
       return {
         stage: "collecting-pool",
         statuses: {
@@ -272,7 +333,7 @@ export default function Monitor() {
       };
     }
 
-    if (status === "processing") {
+    if (backendStatus === "processing") {
       return {
         stage: "decision",
         statuses: {
@@ -284,7 +345,7 @@ export default function Monitor() {
       };
     }
 
-    if (status === "selecting_message") {
+    if (backendStatus === "selecting_message") {
       return {
         stage: "ai-setup-pool",
         statuses: {
@@ -297,7 +358,7 @@ export default function Monitor() {
       };
     }
 
-    if (status === "building_context") {
+    if (backendStatus === "building_context") {
       return {
         stage: "ai-setup-pool",
         statuses: {
@@ -310,7 +371,7 @@ export default function Monitor() {
       };
     }
 
-    if (status === "waiting_for_ai") {
+    if (backendStatus === "waiting_for_ai") {
       return {
         stage: "text-response",
         statuses: {
@@ -324,7 +385,7 @@ export default function Monitor() {
       };
     }
 
-    if (status === "paused") {
+    if (backendStatus === "paused") {
       return {
         stage: "waiting-pool",
         statuses: {
@@ -337,7 +398,13 @@ export default function Monitor() {
     return { stage: "waiting-pool", statuses: allIdle };
   };
 
-  const workflowData = getWorkflowStageFromStatus(streamStatus?.status);
+  const workflowData = getWorkflowStageFromStatus(streamStatus?.status, {
+    isListening,
+    transcript,
+    isEnhancing,
+    isSpeaking,
+    micMuted,
+  });
 
   return (
     <div className="p-6 space-y-6" id="monitor-page">

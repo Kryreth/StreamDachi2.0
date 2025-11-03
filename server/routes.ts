@@ -976,6 +976,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Voice Transcription API - Groq Whisper
+  const multer = (await import("multer")).default;
+  const upload = multer({ storage: multer.memoryStorage() });
+  
+  app.post("/api/voice/transcribe", upload.single("audio"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Audio file is required" });
+      }
+
+      const { transcribeAudio } = await import("./groq-service");
+      
+      // Create a File object from the buffer
+      const audioFile = new File([req.file.buffer], req.file.originalname, {
+        type: req.file.mimetype,
+      });
+      
+      const text = await transcribeAudio(audioFile);
+      
+      res.json({ text });
+    } catch (error) {
+      console.error("Error transcribing audio:", error);
+      res.status(500).json({ error: "Failed to transcribe audio" });
+    }
+  });
+
   // Voice Enhancement API - with database logging
   app.post("/api/voice/enhance", async (req, res) => {
     try {

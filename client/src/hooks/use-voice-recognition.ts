@@ -38,15 +38,22 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
   const [enhancedText, setEnhancedText] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldBeListeningRef = useRef(false);
   const accumulatedTranscriptRef = useRef("");
   const lastSpeechTimeRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceDetectorRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // Check if browser supports speech recognition
+  // Check if browser supports MediaRecorder
   const isSupported = typeof window !== "undefined" && 
-    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+    "MediaRecorder" in window && 
+    navigator.mediaDevices && 
+    navigator.mediaDevices.getUserMedia;
 
   const enhanceSpeech = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -66,8 +73,90 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
     }
   }, [onEnhanced, onError]);
 
-  const startListening = useCallback(() => {
-    if (!isSupported || !recognitionRef.current) return;
+  const transcribeAudio = useCallback(async (audioBlob: Blob) => {
+    try {
+      console.log("Sending audio to Groq Whisper for transcription...");
+      
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "audio.webm");
+      
+      const response = await fetch("/api/voice/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      const result = await response.json();
+      const transcribedText = result.text?.trim() || "";
+      
+      if (transcribedText) {
+        console.log("Whisper transcription:", transcribedText);
+        accumulatedTranscriptRef.current += transcribedText + " ";
+        lastSpeechTimeRef.current = Date.now();
+        
+        const currentTranscript = accumulatedTranscriptRef.current.trim();
+        setTranscript(currentTranscript);
+        onTranscript?.(currentTranscript);
+        
+        // Clear existing silence timeout
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
+        
+        // Set new silence timeout (5 seconds after last speech)
+        if (autoEnhance && shouldBeListeningRef.current) {
+          console.log("Resetting 5-second silence timer");
+          silenceTimeoutRef.current = setTimeout(() => {
+            console.log("5 seconds of silence - rephrasing:", accumulatedTranscriptRef.current.trim());
+            enhanceSpeech(accumulatedTranscriptRef.current.trim());
+          }, 5000);
+        }
+      }
+    } catch (error: any) {
+      console.error("Transcription error:", error);
+      onError?.("Failed to transcribe audio");
+    }
+  }, [autoEnhance, onTranscript, onError, enhanceSpeech]);
+
+  const detectSilence = useCallback(() => {
+    if (!analyserRef.current || !shouldBeListeningRef.current) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+    
+    // Calculate average volume
+    const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    const isSilent = average < 5; // Threshold for silence
+    
+    if (!isSilent) {
+      lastSpeechTimeRef.current = Date.now();
+    }
+    
+    // Check if we have accumulated audio and it's been silent for 2 seconds
+    const timeSinceSpeech = Date.now() - lastSpeechTimeRef.current;
+    if (timeSinceSpeech > 2000 && audioChunksRef.current.length > 0) {
+      console.log("Silence detected after speech - processing audio chunk");
+      
+      // Stop current recording and process
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    }
+    
+    // Continue monitoring if still listening
+    if (shouldBeListeningRef.current) {
+      silenceDetectorRef.current = setTimeout(detectSilence, 100);
+    }
+  }, []);
+
+  const startListening = useCallback(async () => {
+    if (!isSupported) {
+      onError?.("Voice recognition not supported");
+      return;
+    }
 
     console.log("User clicked start listening");
     shouldBeListeningRef.current = true;
@@ -76,30 +165,98 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
     setEnhancedText("");
     
     try {
-      recognitionRef.current.start();
+      // Get microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        } 
+      });
+      
+      streamRef.current = stream;
+      
+      // Set up audio analysis for silence detection
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 2048;
+      
+      // Start silence detection
+      lastSpeechTimeRef.current = Date.now();
+      detectSilence();
+      
+      // Set up MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm',
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        console.log("MediaRecorder stopped");
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          audioChunksRef.current = [];
+          
+          // Transcribe the audio
+          await transcribeAudio(audioBlob);
+        }
+        
+        // Restart recording if still listening
+        if (shouldBeListeningRef.current && mediaRecorderRef.current) {
+          audioChunksRef.current = [];
+          mediaRecorderRef.current.start();
+          console.log("Restarted recording");
+        }
+      };
+      
+      mediaRecorder.start();
       setIsListening(true);
       onStart?.();
+      console.log("Groq Whisper voice recognition started");
+      
     } catch (error: any) {
       console.error("Failed to start recognition:", error);
-      if (error.message && error.message.includes("already started")) {
-        // Already running, just update state
-        setIsListening(true);
-      } else {
-        onError?.("Failed to start voice recognition");
-      }
+      onError?.("Failed to access microphone");
+      shouldBeListeningRef.current = false;
     }
-  }, [isSupported, onStart, onError]);
+  }, [isSupported, onStart, onError, detectSilence, transcribeAudio]);
 
   const stopListening = useCallback(() => {
     console.log("User clicked stop listening");
     shouldBeListeningRef.current = false;
     
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (error: any) {
-        console.error("Failed to stop recognition:", error);
-      }
+    // Stop silence detector
+    if (silenceDetectorRef.current) {
+      clearTimeout(silenceDetectorRef.current);
+      silenceDetectorRef.current = null;
+    }
+    
+    // Stop media recorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Stop audio stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    // Close audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
     }
     
     // Clear silence timeout
@@ -124,129 +281,32 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
     accumulatedTranscriptRef.current = "";
   }, []);
 
+  // Cleanup on unmount
   useEffect(() => {
-    if (!isSupported) return;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = false; // Set to false so we can auto-restart
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onstart = () => {
-      console.log("Browser voice recognition started");
-    };
-
-    recognition.onresult = (event: any) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + " ";
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      // Update accumulated transcript with final results
-      if (finalTranscript) {
-        accumulatedTranscriptRef.current += finalTranscript;
-        lastSpeechTimeRef.current = Date.now();
-        console.log("Got final speech:", finalTranscript);
-      }
-
-      // Display accumulated + interim
-      const currentTranscript = (accumulatedTranscriptRef.current + interimTranscript).trim();
-      setTranscript(currentTranscript);
-      onTranscript?.(currentTranscript);
-
-      // Clear existing silence timeout
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
-      }
-
-      // Set new silence timeout (5 seconds after last speech)
-      if (currentTranscript.trim() && autoEnhance && shouldBeListeningRef.current) {
-        console.log("Resetting 5-second silence timer");
-        silenceTimeoutRef.current = setTimeout(() => {
-          const timeSinceLastSpeech = Date.now() - lastSpeechTimeRef.current;
-          console.log(`Silence detected (${timeSinceLastSpeech}ms since last speech) - rephrasing:`, accumulatedTranscriptRef.current.trim());
-          enhanceSpeech(accumulatedTranscriptRef.current.trim());
-        }, 5000);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error("Voice recognition error:", event.error);
-      
-      // Don't treat "no-speech" as a fatal error if we're meant to be listening
-      if (event.error === "no-speech" && shouldBeListeningRef.current) {
-        console.log("No speech detected, will auto-restart");
-        return;
-      }
-      
-      if (event.error !== "aborted") {
-        onError?.(event.error);
-      }
-    };
-
-    recognition.onend = () => {
-      console.log("Browser voice recognition ended");
-      
-      // Check if we should trigger AI enhancement after 5 seconds
-      const timeSinceLastSpeech = Date.now() - lastSpeechTimeRef.current;
-      if (accumulatedTranscriptRef.current.trim() && 
-          autoEnhance && 
-          shouldBeListeningRef.current && 
-          timeSinceLastSpeech < 2000) { // If speech was recent (within 2s), start 5s timer
-        
-        console.log("Starting 5-second silence timer after recognition ended");
-        if (silenceTimeoutRef.current) {
-          clearTimeout(silenceTimeoutRef.current);
-        }
-        
-        silenceTimeoutRef.current = setTimeout(() => {
-          console.log(`5 seconds of silence detected - rephrasing:`, accumulatedTranscriptRef.current.trim());
-          enhanceSpeech(accumulatedTranscriptRef.current.trim());
-        }, 5000);
-      }
-      
-      // Auto-restart if user still wants to be listening
-      if (shouldBeListeningRef.current) {
-        console.log("Auto-restarting voice recognition...");
-        setTimeout(() => {
-          if (shouldBeListeningRef.current) {
-            try {
-              recognition.start();
-            } catch (error: any) {
-              console.error("Failed to auto-restart:", error);
-            }
-          }
-        }, 100); // Small delay to avoid rapid restart issues
-      } else {
-        setIsListening(false);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
     return () => {
       shouldBeListeningRef.current = false;
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+      
+      if (silenceDetectorRef.current) {
+        clearTimeout(silenceDetectorRef.current);
       }
+      
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
       }
     };
-  }, [isSupported, continuous, autoEnhance, onTranscript, onError, enhanceSpeech]);
+  }, []);
 
   return {
     isListening,

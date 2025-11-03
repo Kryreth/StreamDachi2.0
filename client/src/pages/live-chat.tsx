@@ -101,11 +101,11 @@ export default function LiveChat() {
         </div>
       </div>
 
-      {/* Embedded Twitch Chat */}
-      <div className="flex-1 flex flex-col">
+      {/* Embedded Twitch Chat - Fixed iframe display */}
+      <div className="flex-1 flex flex-col min-h-0">
         {isConnected && channelName ? (
-          <Card className="flex-1 flex flex-col">
-            <CardHeader>
+          <Card className="flex-1 flex flex-col min-h-0">
+            <CardHeader className="flex-shrink-0">
               <CardTitle className="flex items-center gap-2">
                 <SiTwitch className="h-5 w-5 text-primary" />
                 {channelName}'s Chat
@@ -114,14 +114,13 @@ export default function LiveChat() {
                 Full Twitch chat experience with native mod tools (ban, timeout, delete, etc.)
               </p>
             </CardHeader>
-            <CardContent className="flex-1 p-0">
+            <CardContent className="flex-1 p-0 min-h-0">
               <iframe
                 src={`https://www.twitch.tv/embed/${channelName}/chat?parent=${window.location.hostname}&darkpopout`}
-                height="100%"
-                width="100%"
-                className="rounded-b-lg"
+                className="w-full h-full rounded-b-lg border-0"
                 data-testid="iframe-twitch-chat"
                 title={`${channelName} Twitch Chat`}
+                style={{ minHeight: '500px' }}
               />
             </CardContent>
           </Card>

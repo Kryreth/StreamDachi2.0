@@ -14,7 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ChatMessage, VoiceAiResponse } from "@shared/schema";
 import WorkflowChart, { type WorkflowStage, type StageStatus } from "@/components/workflow-chart";
 import { useVoiceRecognition } from "@/hooks/use-voice-recognition";
-import { PUTER_VOICES } from "@/hooks/use-puter-tts";
+import { PUTER_VOICES, usePuterTTS } from "@/hooks/use-puter-tts";
 
 interface DachiStreamState {
   status: string;
@@ -37,6 +37,11 @@ export default function Monitor() {
   const [selectedVoice, setSelectedVoice] = useState("Joanna");
   const [listeningPaused, setListeningPaused] = useState(false);
   
+  // Dual Audio Output State
+  const [programAudioMuted, setProgramAudioMuted] = useState(false);
+  const [secondCableMuted, setSecondCableMuted] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  
   // Silence detection state
   const lastEnhancedTextRef = useRef("");
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,6 +60,15 @@ export default function Monitor() {
     autoEnhance: voiceRephrasingEnabled,
     continuous: true,
   });
+
+  // Puter TTS Integration
+  const {
+    isSupported: ttsSupported,
+    isSpeaking,
+    speak,
+    stop: stopSpeaking,
+    updateSettings: updateTtsSettings,
+  } = usePuterTTS();
 
   // Fetch DachiStream status
   const { data: streamStatus } = useQuery<DachiStreamState>({
@@ -104,10 +118,16 @@ export default function Monitor() {
     }
   }, [micMuted]);
 
-  // Auto-clear AI output after new enhanced text appears (500-1000ms delay)
+  // Auto-clear AI output after new enhanced text appears AND trigger TTS audio
   useEffect(() => {
     if (enhancedText && enhancedText !== lastEnhancedTextRef.current) {
       lastEnhancedTextRef.current = enhancedText;
+      
+      // Play TTS audio if enabled and not muted
+      if (ttsEnabled && ttsSupported && !programAudioMuted) {
+        console.log("[Monitor] Playing TTS for:", enhancedText);
+        speak(enhancedText);
+      }
       
       // Clear the silence timer if it exists
       if (silenceTimerRef.current) {
@@ -119,7 +139,7 @@ export default function Monitor() {
         lastEnhancedTextRef.current = "";
       }, 10000);
     }
-  }, [enhancedText]);
+  }, [enhancedText, ttsEnabled, ttsSupported, programAudioMuted, speak]);
 
   // Handle pause/resume listening
   const handleListeningToggle = () => {
@@ -136,10 +156,19 @@ export default function Monitor() {
     }
   };
 
+  // Sync TTS voice selection
+  useEffect(() => {
+    updateTtsSettings({
+      voice: selectedVoice,
+      enabled: ttsEnabled && !programAudioMuted,
+    });
+  }, [selectedVoice, ttsEnabled, programAudioMuted, updateTtsSettings]);
+
   // Handle clear AI output
   const handleClearOutput = () => {
     resetTranscript();
     lastEnhancedTextRef.current = "";
+    stopSpeaking();
   };
 
   // Pause mutation
@@ -397,6 +426,61 @@ export default function Monitor() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Dual Audio Output Controls */}
+              <div className="pt-2 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Audio Outputs</label>
+                  {isSpeaking && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Volume2 className="h-3 w-3 mr-1" />
+                      Playing
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Program Audio (Main Output) */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                    <div>
+                      <label htmlFor="program-audio" className="text-sm cursor-pointer">
+                        Program Audio
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {programAudioMuted ? "Muted" : "Active"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="program-audio"
+                    checked={!programAudioMuted}
+                    onCheckedChange={(checked) => setProgramAudioMuted(!checked)}
+                    data-testid="switch-program-audio"
+                  />
+                </div>
+
+                {/* Second Cable (Optional Output) */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                    <div>
+                      <label htmlFor="second-cable" className="text-sm cursor-pointer">
+                        Second Cable
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {secondCableMuted ? "Muted" : "Active"}
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="second-cable"
+                    checked={!secondCableMuted}
+                    onCheckedChange={(checked) => setSecondCableMuted(!checked)}
+                    data-testid="switch-second-cable"
+                  />
+                </div>
               </div>
 
               {/* Pause/Resume Listening Button */}

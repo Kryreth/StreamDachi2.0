@@ -242,14 +242,15 @@ export async function cleanupSpeechText(rawText: string): Promise<string> {
 export async function enhanceSpeechForChat(rawText: string): Promise<EnhancedSpeechResult> {
   try {
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
           content:
-            "Rephrase the spoken text to say the same thing in different words. " +
+            "Rephrase the spoken text to make it sound natural and conversational. " +
             "Remove stutters and filler words (um, uh, like). " +
-            "Keep the EXACT same meaning and tone. Do NOT add personality or change the message. " +
+            "Preserve the original meaning, intent, and tone as closely as possible. " +
+            "Make only minimal edits for clarity. " +
             "Output only the rephrased text, nothing else.",
         },
         {
@@ -258,7 +259,7 @@ export async function enhanceSpeechForChat(rawText: string): Promise<EnhancedSpe
         },
       ],
       max_tokens: 150,
-      temperature: 0.3,
+      temperature: 0.5,
     });
 
     const enhanced = response.choices[0].message.content || rawText;
@@ -273,5 +274,22 @@ export async function enhanceSpeechForChat(rawText: string): Promise<EnhancedSpe
       original: rawText,
       enhanced: rawText,
     };
+  }
+}
+
+export async function transcribeAudio(audioFile: File): Promise<string> {
+  try {
+    const transcription = await groq.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-large-v3",
+      language: "en",
+      response_format: "json",
+      temperature: 0.0,
+    });
+
+    return transcription.text;
+  } catch (error) {
+    console.error("Error transcribing audio with Groq Whisper:", error);
+    throw error;
   }
 }

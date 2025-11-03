@@ -24,6 +24,15 @@ interface DachiStreamState {
   secondsUntilNextCycle: number;
 }
 
+// Personality presets (defined outside component to avoid recreation)
+const PERSONALITY_PRESETS = {
+  Neutral: { pitch: 1.0, speed: 1.0 },
+  Quirky: { pitch: 1.2, speed: 1.1 },
+  Funny: { pitch: 1.1, speed: 1.05 },
+  Sarcastic: { pitch: 0.95, speed: 0.9 },
+  Professional: { pitch: 0.9, speed: 0.95 },
+} as const;
+
 export default function Monitor() {
   const [isPaused, setIsPaused] = useState(false);
   const [cycleInterval, setCycleInterval] = useState(15);
@@ -183,27 +192,21 @@ export default function Monitor() {
     }
   };
 
-  // Auto-adjust pitch and speed based on personality
-  useEffect(() => {
-    const personalityPresets = {
-      Neutral: { pitch: 1.0, speed: 1.0 },
-      Quirky: { pitch: 1.2, speed: 1.1 },
-      Funny: { pitch: 1.1, speed: 1.05 },
-      Sarcastic: { pitch: 0.95, speed: 0.9 },
-      Professional: { pitch: 0.9, speed: 0.95 },
-    };
+  // Handle personality change
+  const handlePersonalityChange = (newPersonality: typeof personality) => {
+    setPersonality(newPersonality);
     
-    const preset = personalityPresets[personality];
+    const preset = PERSONALITY_PRESETS[newPersonality];
     setVoicePitch(preset.pitch);
     setVoiceSpeed(preset.speed);
     
-    // Save personality settings to database
+    // Save to database
     updatePersonalityMutation.mutate({
-      personality,
+      personality: newPersonality,
       pitch: preset.pitch,
       speed: preset.speed,
     });
-  }, [personality]);
+  };
   
   // Sync TTS voice selection
   useEffect(() => {
@@ -563,7 +566,7 @@ export default function Monitor() {
                     {isTtsSpeaking ? "Speaking..." : "Test Voice"}
                   </Button>
                 </div>
-                <Select value={personality} onValueChange={(value: any) => setPersonality(value)}>
+                <Select value={personality} onValueChange={(value: any) => handlePersonalityChange(value)}>
                   <SelectTrigger data-testid="select-personality">
                     <SelectValue />
                   </SelectTrigger>

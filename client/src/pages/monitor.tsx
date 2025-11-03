@@ -36,6 +36,9 @@ export default function Monitor() {
   const [stageControlEnabled, setStageControlEnabled] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState("Joanna");
   const [listeningPaused, setListeningPaused] = useState(false);
+  const [personality, setPersonality] = useState<"Neutral" | "Quirky" | "Funny" | "Sarcastic" | "Professional">("Neutral");
+  const [voicePitch, setVoicePitch] = useState(1.0);
+  const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   
   // Dual Audio Output State
   const [programAudioMuted, setProgramAudioMuted] = useState(false);
@@ -180,6 +183,28 @@ export default function Monitor() {
     }
   };
 
+  // Auto-adjust pitch and speed based on personality
+  useEffect(() => {
+    const personalityPresets = {
+      Neutral: { pitch: 1.0, speed: 1.0 },
+      Quirky: { pitch: 1.2, speed: 1.1 },
+      Funny: { pitch: 1.1, speed: 1.05 },
+      Sarcastic: { pitch: 0.95, speed: 0.9 },
+      Professional: { pitch: 0.9, speed: 0.95 },
+    };
+    
+    const preset = personalityPresets[personality];
+    setVoicePitch(preset.pitch);
+    setVoiceSpeed(preset.speed);
+    
+    // Save personality settings to database
+    updatePersonalityMutation.mutate({
+      personality,
+      pitch: preset.pitch,
+      speed: preset.speed,
+    });
+  }, [personality]);
+  
   // Sync TTS voice selection
   useEffect(() => {
     updateTtsSettings({
@@ -237,6 +262,13 @@ export default function Monitor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dachistream/interval"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dachistream/status"] });
+    },
+  });
+
+  // Update personality mutation
+  const updatePersonalityMutation = useMutation({
+    mutationFn: async (data: { personality: string; pitch: number; speed: number }) => {
+      return await apiRequest("/api/settings/voice-personality", "POST", data);
     },
   });
 
@@ -497,6 +529,26 @@ export default function Monitor() {
                   onCheckedChange={setVoiceRephrasingEnabled}
                   data-testid="switch-rephrasing"
                 />
+              </div>
+
+              {/* Personality Selector */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  AI Personality
+                </label>
+                <Select value={personality} onValueChange={(value: any) => setPersonality(value)}>
+                  <SelectTrigger data-testid="select-personality">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Neutral">Neutral - Natural & conversational</SelectItem>
+                    <SelectItem value="Quirky">Quirky - Playful & energetic</SelectItem>
+                    <SelectItem value="Funny">Funny - Humorous & lighthearted</SelectItem>
+                    <SelectItem value="Sarcastic">Sarcastic - Witty & deadpan</SelectItem>
+                    <SelectItem value="Professional">Professional - Polished & articulate</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Voice Selector */}

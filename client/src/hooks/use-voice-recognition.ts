@@ -52,8 +52,9 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
   // Check if browser supports MediaRecorder
   const isSupported = typeof window !== "undefined" && 
     "MediaRecorder" in window && 
-    navigator.mediaDevices && 
-    navigator.mediaDevices.getUserMedia;
+    typeof navigator !== "undefined" &&
+    !!navigator.mediaDevices && 
+    typeof navigator.mediaDevices.getUserMedia === "function";
 
   const enhanceSpeech = useCallback(async (text: string) => {
     if (!text.trim()) return;

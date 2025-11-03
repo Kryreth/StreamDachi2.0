@@ -173,6 +173,11 @@ export const settings = pgTable("settings", {
   ttsRate: integer("tts_rate").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
   ttsVolume: integer("tts_volume").notNull().default(10), // 0-10 (0.0-1.0), divide by 10
   
+  // Voice AI Personality Settings (for Groq rephrasing + Puter.js TTS)
+  voiceAiPersonality: text("voice_ai_personality").notNull().default("Neutral"), // Neutral, Quirky, Funny, Sarcastic, Professional
+  voiceAiPitch: integer("voice_ai_pitch").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
+  voiceAiSpeed: integer("voice_ai_speed").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
+  
   // Topic Filters
   topicAllowlist: jsonb("topic_allowlist").$type<string[]>().default(sql`'["gaming", "anime", "chatting"]'::jsonb`),
   topicBlocklist: jsonb("topic_blocklist").$type<string[]>().default(sql`'["politics", "religion"]'::jsonb`),

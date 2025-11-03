@@ -234,7 +234,7 @@ export default function Monitor() {
     };
     
     const phrase = testPhrases[personality];
-    speakWithPuter(phrase);
+    speak(phrase);
   };
 
   // Pause mutation
@@ -560,10 +560,10 @@ export default function Monitor() {
                     variant="outline"
                     size="sm"
                     onClick={handleTestVoice}
-                    disabled={!ttsEnabled || isTtsSpeaking}
+                    disabled={!ttsEnabled || isSpeaking}
                     data-testid="button-test-voice"
                   >
-                    {isTtsSpeaking ? "Speaking..." : "Test Voice"}
+                    {isSpeaking ? "Speaking..." : "Test Voice"}
                   </Button>
                 </div>
                 <Select value={personality} onValueChange={(value: any) => handlePersonalityChange(value)}>

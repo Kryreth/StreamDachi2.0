@@ -1011,7 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      const { enhanceSpeechForChat, PersonalityStyle } = await import("./groq-service");
+      const { enhanceSpeechForChat } = await import("./groq-service");
       
       // Get personality from request or settings
       let selectedPersonality = personality;
@@ -1051,6 +1051,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching voice AI responses:", error);
       res.status(500).json({ error: "Failed to fetch voice AI responses" });
+    }
+  });
+
+  // Voice Personality Settings
+  app.post("/api/settings/voice-personality", async (req, res) => {
+    try {
+      const { personality, pitch, speed } = req.body;
+      
+      const allSettings = await storage.getSettings();
+      if (allSettings.length === 0) {
+        return res.status(404).json({ error: "Settings not found" });
+      }
+      
+      const settings = allSettings[0];
+      await storage.updateSettings(settings.id, {
+        voiceAiPersonality: personality,
+        voiceAiPitch: Math.round(pitch * 10), // Store as 0-20 (0.0-2.0)
+        voiceAiSpeed: Math.round(speed * 10), // Store as 0-20 (0.0-2.0)
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating voice personality:", error);
+      res.status(500).json({ error: "Failed to update voice personality" });
     }
   });
 

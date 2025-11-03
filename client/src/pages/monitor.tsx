@@ -45,6 +45,7 @@ export default function Monitor() {
   // Silence detection state
   const lastEnhancedTextRef = useRef("");
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const previousTranscriptRef = useRef("");
 
   // Voice Recognition Integration
   const {
@@ -117,6 +118,29 @@ export default function Monitor() {
       startListening();
     }
   }, [micMuted]);
+
+  // Auto-clear previous transcription when new speech starts
+  useEffect(() => {
+    // Detect when new speech session starts (transcript goes from empty to non-empty)
+    const hadNoTranscript = !previousTranscriptRef.current || previousTranscriptRef.current.trim() === "";
+    const hasNewTranscript = transcript && transcript.trim() !== "";
+    
+    if (hadNoTranscript && hasNewTranscript) {
+      // New speech session detected - clear everything from previous session
+      console.log("[Monitor] New speech detected - clearing previous session");
+      lastEnhancedTextRef.current = "";
+      stopSpeaking();
+      
+      // Clear the silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    }
+    
+    // Update previous transcript reference
+    previousTranscriptRef.current = transcript;
+  }, [transcript, stopSpeaking]);
 
   // Auto-clear AI output after new enhanced text appears AND trigger TTS audio
   useEffect(() => {

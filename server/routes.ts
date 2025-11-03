@@ -656,6 +656,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
+      
+      // Save interval to database settings so it persists across restarts
+      const allSettings = await storage.getSettings();
+      if (allSettings.length > 0) {
+        const settings = allSettings[0];
+        await storage.updateSettings(settings.id, {
+          dachiastreamCycleInterval: intervalSeconds,
+        });
+      }
+      
+      // Update the service
       dachiStreamService.updateCycleInterval(intervalSeconds);
       res.json({ success: true, intervalSeconds });
     } catch (error) {

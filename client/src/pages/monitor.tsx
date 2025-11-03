@@ -6,12 +6,15 @@ import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, MessageSquare, Sparkles, Ban, Clock as TimeoutIcon, Star, Shield, Play, Pause, Square } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Clock, MessageSquare, Sparkles, Ban, Clock as TimeoutIcon, Star, Shield, Play, Pause, Square, Mic, MicOff, Volume2, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ChatMessage, VoiceAiResponse } from "@shared/schema";
 import WorkflowChart, { type WorkflowStage, type StageStatus } from "@/components/workflow-chart";
+import { useVoiceRecognition } from "@/hooks/use-voice-recognition";
+import { PUTER_VOICES } from "@/hooks/use-puter-tts";
 
 interface DachiStreamState {
   status: string;
@@ -26,6 +29,27 @@ export default function Monitor() {
   const [cycleInterval, setCycleInterval] = useState(15);
   const [aiResponseLimit, setAiResponseLimit] = useState<number>(10);
   const [selectedUser, setSelectedUser] = useState<{username: string, userId?: string | null} | null>(null);
+  
+  // Voice & Controls State
+  const [micMuted, setMicMuted] = useState(false);
+  const [voiceRephrasingEnabled, setVoiceRephrasingEnabled] = useState(true);
+  const [stageControlEnabled, setStageControlEnabled] = useState(true);
+  const [selectedVoice, setSelectedVoice] = useState("Joanna");
+
+  // Voice Recognition Integration
+  const {
+    isListening,
+    transcript,
+    enhancedText,
+    startListening,
+    stopListening,
+    resetTranscript,
+    isSupported: voiceSupported,
+    isEnhancing
+  } = useVoiceRecognition({
+    autoEnhance: voiceRephrasingEnabled,
+    continuous: true,
+  });
 
   // Fetch DachiStream status
   const { data: streamStatus } = useQuery<DachiStreamState>({
@@ -65,6 +89,15 @@ export default function Monitor() {
       setIsPaused(false);
     }
   }, [streamStatus?.status]);
+
+  // Handle mic mute toggle
+  useEffect(() => {
+    if (micMuted && isListening) {
+      stopListening();
+    } else if (!micMuted && !isListening && voiceSupported) {
+      startListening();
+    }
+  }, [micMuted]);
 
   // Pause mutation
   const pauseMutation = useMutation({
@@ -235,227 +268,405 @@ export default function Monitor() {
   const workflowData = getWorkflowStageFromStatus(streamStatus?.status);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6" id="monitor-page">
       <div>
         <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-monitor">
           Monitor
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Real-time DachiStream monitoring and controls
+          Real-time DachiStream monitoring and voice controls
         </p>
       </div>
 
-      {/* 3-Module Layout */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Module 1: Status Collecting Messages */}
-        <Card data-testid="card-status">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Status Collecting Messages
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Status Badge */}
-            <div className="flex items-center justify-center">
-              <Badge 
-                variant={isPaused ? "secondary" : "default"}
-                className="text-lg py-2 px-4"
-                data-testid="badge-status"
-              >
-                {isPaused ? "PAUSED" : streamStatus?.status?.toUpperCase() || "IDLE"}
-              </Badge>
-            </div>
-
-            {/* Countdown Timer */}
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary" data-testid="text-countdown">
-                {formatTime(streamStatus?.secondsUntilNextCycle || cycleInterval)}
+      {/* CONTROLS BAR - Toggle switches for Mic, Voice Rephrasing, and Stage Control */}
+      <Card id="controls-bar" data-testid="card-controls-bar">
+        <CardContent className="py-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Microphone Control */}
+            <div className="flex items-center justify-between space-x-3">
+              <div className="flex items-center gap-3">
+                {micMuted ? <MicOff className="h-5 w-5 text-muted-foreground" /> : <Mic className="h-5 w-5 text-primary" />}
+                <div>
+                  <label htmlFor="mic-toggle" className="text-sm font-medium cursor-pointer">
+                    Microphone
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    {micMuted ? "Muted" : "Active"}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Until next cycle</p>
-            </div>
-
-            {/* Pause/Resume and Stop Buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handlePauseToggle}
-                variant={isPaused ? "default" : "secondary"}
-                className="w-full"
-                data-testid="button-pause-resume"
-              >
-                {isPaused ? (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Resume
-                  </>
-                ) : (
-                  <>
-                    <Pause className="h-4 w-4 mr-2" />
-                    Pause
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={() => resetMutation.mutate()}
-                variant="destructive"
-                className="w-full"
-                data-testid="button-reset"
-              >
-                <Square className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
-            </div>
-
-            {/* Timer Slider */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Cycle Interval</label>
-                <span className="text-sm text-muted-foreground" data-testid="text-interval">
-                  {formatTime(cycleInterval)}
-                </span>
-              </div>
-              <Slider
-                value={[cycleInterval]}
-                onValueChange={handleIntervalChange}
-                min={1}
-                max={300}
-                step={1}
-                className="w-full"
-                data-testid="slider-interval"
+              <Switch
+                id="mic-toggle"
+                checked={!micMuted}
+                onCheckedChange={(checked) => setMicMuted(!checked)}
+                data-testid="switch-mic"
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>1s</span>
-                <span>5m</span>
-              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Module 2: Collected Messages */}
-        <Card data-testid="card-collected-messages">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Collected Messages
-            </CardTitle>
-            <div className="text-sm text-muted-foreground mt-1">
-              {streamStatus?.bufferCount || 0} messages in current cycle
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Inline Scrollable Messages */}
-            {bufferMessages.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No messages collected yet
+            {/* Voice Rephrasing Control */}
+            <div className="flex items-center justify-between space-x-3">
+              <div className="flex items-center gap-3">
+                <Volume2 className="h-5 w-5 text-primary" />
+                <div>
+                  <label htmlFor="rephrasing-toggle" className="text-sm font-medium cursor-pointer">
+                    Voice Rephrasing
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    {voiceRephrasingEnabled ? "Enabled" : "Disabled"}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <ScrollArea className="h-[350px] pr-4">
+              <Switch
+                id="rephrasing-toggle"
+                checked={voiceRephrasingEnabled}
+                onCheckedChange={setVoiceRephrasingEnabled}
+                data-testid="switch-rephrasing"
+              />
+            </div>
+
+            {/* Stage Control */}
+            <div className="flex items-center justify-between space-x-3">
+              <div className="flex items-center gap-3">
+                <Settings className="h-5 w-5 text-primary" />
+                <div>
+                  <label htmlFor="stage-toggle" className="text-sm font-medium cursor-pointer">
+                    Stage Control
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    {stageControlEnabled ? "Enabled" : "Disabled"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="stage-toggle"
+                checked={stageControlEnabled}
+                onCheckedChange={setStageControlEnabled}
+                data-testid="switch-stage-control"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* MAIN LAYOUT - 2 Column Grid: Workflow Chart (Left 60%) + Voice Panel (Right 40%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" id="main-monitor-layout">
+        {/* LEFT COLUMN - Workflow Chart and 3-Module Status (60% width) */}
+        <div className="lg:col-span-3 space-y-6" id="workflow-section">
+          {/* 3-Module Layout */}
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Module 1: Status Collecting Messages */}
+            <Card data-testid="card-status">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Status Collecting Messages
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Status Badge */}
+                <div className="flex items-center justify-center">
+                  <Badge 
+                    variant={isPaused ? "secondary" : "default"}
+                    className="text-lg py-2 px-4"
+                    data-testid="badge-status"
+                  >
+                    {isPaused ? "PAUSED" : streamStatus?.status?.toUpperCase() || "IDLE"}
+                  </Badge>
+                </div>
+
+                {/* Countdown Timer */}
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary" data-testid="text-countdown">
+                    {formatTime(streamStatus?.secondsUntilNextCycle || cycleInterval)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Until next cycle</p>
+                </div>
+
+                {/* Pause/Resume and Stop Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={handlePauseToggle}
+                    variant={isPaused ? "default" : "secondary"}
+                    className="w-full"
+                    data-testid="button-pause-resume"
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play className="h-4 w-4 mr-2" />
+                        Resume
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => resetMutation.mutate()}
+                    variant="destructive"
+                    className="w-full"
+                    data-testid="button-reset"
+                  >
+                    <Square className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
+
+                {/* Timer Slider */}
                 <div className="space-y-2">
-                  {bufferMessages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className="p-3 rounded-lg border bg-card text-sm hover-elevate"
-                      data-testid={`message-${index}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <button
-                          onClick={() => setSelectedUser({username: msg.username, userId: msg.userId})}
-                          className="font-medium text-primary hover:underline cursor-pointer"
-                          data-testid={`username-${index}`}
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Cycle Interval</label>
+                    <span className="text-sm text-muted-foreground" data-testid="text-interval">
+                      {formatTime(cycleInterval)}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[cycleInterval]}
+                    onValueChange={handleIntervalChange}
+                    min={1}
+                    max={300}
+                    step={1}
+                    className="w-full"
+                    data-testid="slider-interval"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1s</span>
+                    <span>5m</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Module 2: Collected Messages */}
+            <Card data-testid="card-collected-messages">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Collected Messages
+                </CardTitle>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {streamStatus?.bufferCount || 0} messages in current cycle
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Inline Scrollable Messages */}
+                {bufferMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No messages collected yet
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[350px] pr-4">
+                    <div className="space-y-2">
+                      {bufferMessages.map((msg, index) => (
+                        <div
+                          key={index}
+                          className="p-3 rounded-lg border bg-card text-sm hover-elevate"
+                          data-testid={`message-${index}`}
                         >
-                          {msg.username}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(msg.timestamp), "HH:mm:ss")}
-                        </span>
-                      </div>
-                      <p className="text-foreground">{msg.message}</p>
+                          <div className="flex items-center justify-between mb-1">
+                            <button
+                              onClick={() => setSelectedUser({username: msg.username, userId: msg.userId})}
+                              className="font-medium text-primary hover:underline cursor-pointer"
+                              data-testid={`username-${index}`}
+                            >
+                              {msg.username}
+                            </button>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(msg.timestamp), "HH:mm:ss")}
+                            </span>
+                          </div>
+                          <p className="text-foreground">{msg.message}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Module 3: AI Responses */}
+            <Card data-testid="card-ai-responses">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  AI Responses
+                </CardTitle>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {allAiResponses.length} total responses
                 </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Response Limit Selector */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Show Last:</label>
+                  <Select
+                    value={aiResponseLimit.toString()}
+                    onValueChange={(value) => setAiResponseLimit(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-[140px]" data-testid="select-ai-limit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5</SelectItem>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-        {/* Module 3: AI Responses */}
-        <Card data-testid="card-ai-responses">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              AI Responses
-            </CardTitle>
-            <div className="text-sm text-muted-foreground mt-1">
-              {allAiResponses.length} total responses
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Response Limit Selector */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Show Last:</label>
-              <Select
-                value={aiResponseLimit.toString()}
-                onValueChange={(value) => setAiResponseLimit(parseInt(value))}
-              >
-                <SelectTrigger className="w-[140px]" data-testid="select-ai-limit">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Inline Scrollable Responses */}
+                {limitedAiResponses.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No AI responses yet
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[280px] pr-4">
+                    <div className="space-y-3">
+                      {limitedAiResponses.map((response) => (
+                        <div
+                          key={response.id}
+                          className="p-3 rounded-lg border bg-card text-sm"
+                          data-testid={`ai-response-${response.id}`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(response.timestamp), "MMM d, HH:mm:ss")}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Original:</p>
+                              <p className="text-foreground bg-muted/30 p-2 rounded">
+                                {response.originalText}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-primary mb-1">AI Rephrased:</p>
+                              <p className="text-foreground bg-primary/10 p-2 rounded border border-primary/20 font-medium">
+                                {response.rephrasedText}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Inline Scrollable Responses */}
-            {limitedAiResponses.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No AI responses yet
+          {/* Visual Workflow Chart */}
+          <WorkflowChart
+            currentStage={workflowData.stage}
+            stageStatuses={workflowData.statuses}
+          />
+        </div>
+
+        {/* RIGHT COLUMN - Voice + Transcription Panel (40% width) */}
+        <div className="lg:col-span-2 space-y-4" id="voice-transcription-panel">
+          {/* Voice Selection */}
+          <Card data-testid="card-voice-selection">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Volume2 className="h-5 w-5" />
+                Voice Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Voice</label>
+                <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                  <SelectTrigger data-testid="select-voice">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PUTER_VOICES.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        {voice.name} ({voice.gender}, {voice.region})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selected: {PUTER_VOICES.find(v => v.id === selectedVoice)?.name || selectedVoice}
+                </p>
               </div>
-            ) : (
-              <ScrollArea className="h-[280px] pr-4">
-                <div className="space-y-3">
-                  {limitedAiResponses.map((response) => (
-                    <div
-                      key={response.id}
-                      className="p-3 rounded-lg border bg-card text-sm"
-                      data-testid={`ai-response-${response.id}`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(response.timestamp), "MMM d, HH:mm:ss")}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Original:</p>
-                          <p className="text-foreground bg-muted/30 p-2 rounded">
-                            {response.originalText}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-primary mb-1">AI Rephrased:</p>
-                          <p className="text-foreground bg-primary/10 p-2 rounded border border-primary/20 font-medium">
-                            {response.rephrasedText}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* Visual Workflow Chart */}
-      <WorkflowChart
-        currentStage={workflowData.stage}
-        stageStatuses={workflowData.statuses}
-      />
+          {/* Live Transcription Display */}
+          <Card data-testid="card-live-transcription">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Mic className="h-5 w-5" />
+                Live Transcription
+                {isListening && (
+                  <Badge variant="default" className="ml-auto">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>
+                    Listening
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                What the microphone detected
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-muted/30">
+                {transcript ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap" data-testid="text-transcript">
+                    {transcript}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {!voiceSupported 
+                      ? "Voice recognition not supported in this browser" 
+                      : micMuted
+                      ? "Microphone is muted"
+                      : "Waiting for speech input..."}
+                  </p>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* AI Rephrased Display */}
+          <Card data-testid="card-ai-rephrased">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                AI Rephrased Output
+                {isEnhancing && (
+                  <Badge variant="secondary" className="ml-auto">
+                    Processing...
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                AI-enhanced version of your speech
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-primary/10">
+                {enhancedText ? (
+                  <p className="text-sm text-foreground font-medium whitespace-pre-wrap" data-testid="text-enhanced">
+                    {enhancedText}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {!voiceRephrasingEnabled
+                      ? "Voice rephrasing is disabled"
+                      : "AI-enhanced text will appear here..."}
+                  </p>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* User Management Dialog */}
       <Dialog open={selectedUser !== null} onOpenChange={(open) => !open && setSelectedUser(null)}>

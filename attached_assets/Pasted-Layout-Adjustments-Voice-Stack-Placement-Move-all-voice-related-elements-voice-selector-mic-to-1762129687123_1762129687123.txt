@@ -1,0 +1,73 @@
+Layout Adjustments:
+
+Voice Stack Placement:
+
+Move all voice-related elements (voice selector, mic toggle, live transcription, AI rephrase output) to the left side of the monitor view.
+
+StreamDashi Window:
+
+Place it on the right side of the monitor.
+
+Must use a fixed size — no auto-scaling/responsive scaling.
+
+🎙️ Voice Features:
+
+Mute / Unmute Mic:
+
+Toggle to silence mic input.
+
+Voice Changer Dropdown:
+
+Allow switching between available voices on the fly.
+
+Live Transcription Toggle:
+
+Add a button to pause/resume transcription manually.
+
+Label clearly, e.g., "Pause Listening" / "Resume Listening".
+
+AI Rephrase Output Refresh:
+
+Ensure the AI output box clears and refreshes after every rephrased response.
+
+No stale or old output should linger.
+
+Wait Mechanism (Timing Improvements):
+
+Add a “done speaking” detection, then:
+
+Wait 500–1000ms after last detected speech.
+
+Then process transcription → send for rephrasing → show response.
+
+This ensures no overlap between voice and response.
+
+🔧 Replit AI Prompt (Copy + Paste)
+
+Reorganize and fix the StreamDachi monitor layout and voice system:
+
+Layout Changes:
+
+All voice-related controls and outputs (mic toggle, voice changer, live transcription, rephrased output) go to the left side of the monitor.
+
+The StreamDashi display moves to the right side and must use a fixed size (disable any auto-scaling or CSS that causes dynamic resizing).
+
+Voice System Enhancements:
+
+Add a mute/unmute mic toggle.
+
+Add a dropdown to change the selected voice.
+
+Add a Pause/Resume button for the live transcription service.
+
+Fix the AI rephrase output so it clears and refreshes after each new input/response cycle.
+
+Add a “wait” mechanism:
+
+Detect when the user is done speaking (silence or mic idle).
+
+After ~500–1000ms delay, submit the transcription for rephrasing.
+
+Wait for the AI response before allowing the next input.
+
+Keep UI elements clearly labeled. Use flexbox or grid as needed to align left/right columns cleanly. No placeholder logic — real functionality only.

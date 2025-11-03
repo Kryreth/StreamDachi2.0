@@ -7,9 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Clock, MessageSquare, Sparkles, Ban, Clock as TimeoutIcon, Star, Shield, Play, Pause, Square, Mic, MicOff, Volume2, Settings } from "lucide-react";
+import { Clock, MessageSquare, Sparkles, Ban, Clock as TimeoutIcon, Star, Shield, Play, Pause, Square, Mic, MicOff, Volume2, Settings, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ChatMessage, VoiceAiResponse } from "@shared/schema";
 import WorkflowChart, { type WorkflowStage, type StageStatus } from "@/components/workflow-chart";
@@ -35,6 +35,11 @@ export default function Monitor() {
   const [voiceRephrasingEnabled, setVoiceRephrasingEnabled] = useState(true);
   const [stageControlEnabled, setStageControlEnabled] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState("Joanna");
+  const [listeningPaused, setListeningPaused] = useState(false);
+  
+  // Silence detection state
+  const lastEnhancedTextRef = useRef("");
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Voice Recognition Integration
   const {
@@ -94,10 +99,48 @@ export default function Monitor() {
   useEffect(() => {
     if (micMuted && isListening) {
       stopListening();
-    } else if (!micMuted && !isListening && voiceSupported) {
+    } else if (!micMuted && !isListening && voiceSupported && !listeningPaused) {
       startListening();
     }
   }, [micMuted]);
+
+  // Auto-clear AI output after new enhanced text appears (500-1000ms delay)
+  useEffect(() => {
+    if (enhancedText && enhancedText !== lastEnhancedTextRef.current) {
+      lastEnhancedTextRef.current = enhancedText;
+      
+      // Clear the silence timer if it exists
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      
+      // Set new timer to clear after 10 seconds
+      silenceTimerRef.current = setTimeout(() => {
+        lastEnhancedTextRef.current = "";
+      }, 10000);
+    }
+  }, [enhancedText]);
+
+  // Handle pause/resume listening
+  const handleListeningToggle = () => {
+    if (listeningPaused) {
+      setListeningPaused(false);
+      if (!micMuted && voiceSupported) {
+        startListening();
+      }
+    } else {
+      setListeningPaused(true);
+      if (isListening) {
+        stopListening();
+      }
+    }
+  };
+
+  // Handle clear AI output
+  const handleClearOutput = () => {
+    resetTranscript();
+    lastEnhancedTextRef.current = "";
+  };
 
   // Pause mutation
   const pauseMutation = useMutation({
@@ -274,92 +317,205 @@ export default function Monitor() {
           Monitor
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Real-time DachiStream monitoring and voice controls
+          Real-time voice controls and StreamDashi monitoring
         </p>
       </div>
 
-      {/* CONTROLS BAR - Toggle switches for Mic, Voice Rephrasing, and Stage Control */}
-      <Card id="controls-bar" data-testid="card-controls-bar">
-        <CardContent className="py-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Microphone Control */}
-            <div className="flex items-center justify-between space-x-3">
-              <div className="flex items-center gap-3">
-                {micMuted ? <MicOff className="h-5 w-5 text-muted-foreground" /> : <Mic className="h-5 w-5 text-primary" />}
-                <div>
-                  <label htmlFor="mic-toggle" className="text-sm font-medium cursor-pointer">
-                    Microphone
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    {micMuted ? "Muted" : "Active"}
-                  </p>
+      {/* MAIN LAYOUT - Voice Panel (LEFT) + StreamDashi Display (RIGHT - FIXED WIDTH) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="main-monitor-layout">
+        
+        {/* LEFT COLUMN - Voice Controls & Transcription Panel (Responsive) */}
+        <div className="lg:col-span-5 space-y-4" id="voice-controls-panel">
+          
+          {/* Voice Control Card */}
+          <Card data-testid="card-voice-controls">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Voice Controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              
+              {/* Microphone Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {micMuted ? <MicOff className="h-5 w-5 text-muted-foreground" /> : <Mic className="h-5 w-5 text-primary" />}
+                  <div>
+                    <label htmlFor="mic-toggle" className="text-sm font-medium cursor-pointer">
+                      Microphone
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      {micMuted ? "Muted" : "Active"}
+                    </p>
+                  </div>
                 </div>
+                <Switch
+                  id="mic-toggle"
+                  checked={!micMuted}
+                  onCheckedChange={(checked) => setMicMuted(!checked)}
+                  data-testid="switch-mic"
+                />
               </div>
-              <Switch
-                id="mic-toggle"
-                checked={!micMuted}
-                onCheckedChange={(checked) => setMicMuted(!checked)}
-                data-testid="switch-mic"
-              />
-            </div>
 
-            {/* Voice Rephrasing Control */}
-            <div className="flex items-center justify-between space-x-3">
-              <div className="flex items-center gap-3">
-                <Volume2 className="h-5 w-5 text-primary" />
-                <div>
-                  <label htmlFor="rephrasing-toggle" className="text-sm font-medium cursor-pointer">
-                    Voice Rephrasing
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    {voiceRephrasingEnabled ? "Enabled" : "Disabled"}
-                  </p>
+              {/* Voice Rephrasing Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <div>
+                    <label htmlFor="rephrasing-toggle" className="text-sm font-medium cursor-pointer">
+                      AI Rephrasing
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      {voiceRephrasingEnabled ? "Enabled" : "Disabled"}
+                    </p>
+                  </div>
                 </div>
+                <Switch
+                  id="rephrasing-toggle"
+                  checked={voiceRephrasingEnabled}
+                  onCheckedChange={setVoiceRephrasingEnabled}
+                  data-testid="switch-rephrasing"
+                />
               </div>
-              <Switch
-                id="rephrasing-toggle"
-                checked={voiceRephrasingEnabled}
-                onCheckedChange={setVoiceRephrasingEnabled}
-                data-testid="switch-rephrasing"
-              />
-            </div>
 
-            {/* Stage Control */}
-            <div className="flex items-center justify-between space-x-3">
-              <div className="flex items-center gap-3">
-                <Settings className="h-5 w-5 text-primary" />
-                <div>
-                  <label htmlFor="stage-toggle" className="text-sm font-medium cursor-pointer">
-                    Stage Control
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    {stageControlEnabled ? "Enabled" : "Disabled"}
+              {/* Voice Selector */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Volume2 className="h-4 w-4" />
+                  Voice Selection
+                </label>
+                <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                  <SelectTrigger data-testid="select-voice">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PUTER_VOICES.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        {voice.name} ({voice.gender}, {voice.region})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Pause/Resume Listening Button */}
+              <div className="pt-2">
+                <Button
+                  onClick={handleListeningToggle}
+                  variant={listeningPaused ? "default" : "secondary"}
+                  className="w-full"
+                  data-testid="button-pause-listening"
+                >
+                  {listeningPaused ? (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Resume Listening
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Pause Listening
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Live Transcription Display */}
+          <Card data-testid="card-live-transcription">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <Mic className="h-5 w-5" />
+                  Live Transcription
+                  {isListening && !listeningPaused && (
+                    <Badge variant="default" className="ml-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>
+                      Listening
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearOutput}
+                  data-testid="button-clear-transcript"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                What the microphone detected
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-muted/30">
+                {transcript ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap" data-testid="text-transcript">
+                    {transcript}
                   </p>
-                </div>
-              </div>
-              <Switch
-                id="stage-toggle"
-                checked={stageControlEnabled}
-                onCheckedChange={setStageControlEnabled}
-                data-testid="switch-stage-control"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {!voiceSupported 
+                      ? "Voice recognition not supported in this browser" 
+                      : micMuted
+                      ? "Microphone is muted"
+                      : listeningPaused
+                      ? "Listening paused - Click 'Resume Listening' to continue"
+                      : "Waiting for speech input..."}
+                  </p>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
-      {/* MAIN LAYOUT - 2 Column Grid: Workflow Chart (Left 60%) + Voice Panel (Right 40%) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6" id="main-monitor-layout">
-        {/* LEFT COLUMN - Workflow Chart and 3-Module Status (60% width) */}
-        <div className="lg:col-span-3 space-y-6" id="workflow-section">
-          {/* 3-Module Layout */}
-          <div className="grid gap-4 md:grid-cols-3">
+          {/* AI Rephrased Output */}
+          <Card data-testid="card-ai-rephrased">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                AI Rephrased Output
+                {isEnhancing && (
+                  <Badge variant="secondary" className="ml-2">
+                    Processing...
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                AI-enhanced version (auto-clears after each response)
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-primary/10">
+                {enhancedText ? (
+                  <p className="text-sm text-foreground font-medium whitespace-pre-wrap" data-testid="text-enhanced">
+                    {enhancedText}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    {!voiceRephrasingEnabled
+                      ? "Voice rephrasing is disabled"
+                      : "AI-enhanced text will appear here..."}
+                  </p>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* RIGHT COLUMN - StreamDashi Display (FIXED WIDTH) */}
+        <div className="lg:col-span-7" id="streamdashi-display" style={{ maxWidth: '900px' }}>
+          
+          {/* 3-Module Status Layout */}
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
             {/* Module 1: Status Collecting Messages */}
             <Card data-testid="card-status">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Status Collecting Messages
+                  Status
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -382,7 +538,7 @@ export default function Monitor() {
                   <p className="text-xs text-muted-foreground mt-1">Until next cycle</p>
                 </div>
 
-                {/* Pause/Resume and Stop Buttons */}
+                {/* Pause/Resume and Reset Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     onClick={handlePauseToggle}
@@ -443,17 +599,17 @@ export default function Monitor() {
               <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  Collected Messages
+                  Messages
                 </CardTitle>
                 <div className="text-sm text-muted-foreground mt-1">
-                  {streamStatus?.bufferCount || 0} messages in current cycle
+                  {streamStatus?.bufferCount || 0} collected
                 </div>
               </CardHeader>
               <CardContent>
                 {/* Inline Scrollable Messages */}
                 {bufferMessages.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
-                    No messages collected yet
+                    No messages yet
                   </div>
                 ) : (
                   <ScrollArea className="h-[350px] pr-4">
@@ -493,18 +649,18 @@ export default function Monitor() {
                   AI Responses
                 </CardTitle>
                 <div className="text-sm text-muted-foreground mt-1">
-                  {allAiResponses.length} total responses
+                  {allAiResponses.length} total
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Response Limit Selector */}
                 <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium">Show Last:</label>
+                  <label className="text-sm font-medium">Show:</label>
                   <Select
                     value={aiResponseLimit.toString()}
                     onValueChange={(value) => setAiResponseLimit(parseInt(value))}
                   >
-                    <SelectTrigger className="w-[140px]" data-testid="select-ai-limit">
+                    <SelectTrigger className="w-[100px]" data-testid="select-ai-limit">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -519,7 +675,7 @@ export default function Monitor() {
                 {/* Inline Scrollable Responses */}
                 {limitedAiResponses.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
-                    No AI responses yet
+                    No responses yet
                   </div>
                 ) : (
                   <ScrollArea className="h-[280px] pr-4">
@@ -558,113 +714,13 @@ export default function Monitor() {
             </Card>
           </div>
 
-          {/* Visual Workflow Chart */}
-          <WorkflowChart
-            currentStage={workflowData.stage}
-            stageStatuses={workflowData.statuses}
-          />
-        </div>
-
-        {/* RIGHT COLUMN - Voice + Transcription Panel (40% width) */}
-        <div className="lg:col-span-2 space-y-4" id="voice-transcription-panel">
-          {/* Voice Selection */}
-          <Card data-testid="card-voice-selection">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Volume2 className="h-5 w-5" />
-                Voice Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Select Voice</label>
-                <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                  <SelectTrigger data-testid="select-voice">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PUTER_VOICES.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        {voice.name} ({voice.gender}, {voice.region})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Selected: {PUTER_VOICES.find(v => v.id === selectedVoice)?.name || selectedVoice}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Live Transcription Display */}
-          <Card data-testid="card-live-transcription">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Mic className="h-5 w-5" />
-                Live Transcription
-                {isListening && (
-                  <Badge variant="default" className="ml-auto">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>
-                    Listening
-                  </Badge>
-                )}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                What the microphone detected
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-muted/30">
-                {transcript ? (
-                  <p className="text-sm text-foreground whitespace-pre-wrap" data-testid="text-transcript">
-                    {transcript}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    {!voiceSupported 
-                      ? "Voice recognition not supported in this browser" 
-                      : micMuted
-                      ? "Microphone is muted"
-                      : "Waiting for speech input..."}
-                  </p>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* AI Rephrased Display */}
-          <Card data-testid="card-ai-rephrased">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                AI Rephrased Output
-                {isEnhancing && (
-                  <Badge variant="secondary" className="ml-auto">
-                    Processing...
-                  </Badge>
-                )}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                AI-enhanced version of your speech
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-primary/10">
-                {enhancedText ? (
-                  <p className="text-sm text-foreground font-medium whitespace-pre-wrap" data-testid="text-enhanced">
-                    {enhancedText}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    {!voiceRephrasingEnabled
-                      ? "Voice rephrasing is disabled"
-                      : "AI-enhanced text will appear here..."}
-                  </p>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          {/* Visual Workflow Chart (Fixed Width Display) */}
+          <div style={{ width: '100%', maxWidth: '900px' }}>
+            <WorkflowChart
+              currentStage={workflowData.stage}
+              stageStatuses={workflowData.statuses}
+            />
+          </div>
         </div>
       </div>
 

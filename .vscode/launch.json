@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "🚀 Launch StreamDachi (Local)",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/server/index.ts",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "outputCapture": "std"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "🐛 Debug StreamDachi",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/server/index.ts",
+      "runtimeArgs": ["-r", "tsx/register"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart",
+      "sourceMaps": true,
+      "smartStep": true
+    }
+  ]
+}

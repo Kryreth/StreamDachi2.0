@@ -16,6 +16,18 @@ Key features include a configurable DachiStream interval, a redesigned Monitor p
 ## External Dependencies
 *   **Twitch Integration**: `tmi.js` for IRC and chat, Twitch Helix API for user search, OAuth, raid commands, follower/stream status, and clip fetching.
 *   **GroqCloud AI Integration**: `groq-sdk` with models like Llama 3.3 70B Versatile, Llama 3.1 70B, Mixtral 8x7B, Llama 3.1 8B Instant, and Gemma 2 9B for sentiment analysis, toxicity detection, message categorization, custom commands, and AI learning.
-*   **Database**: Neon Serverless PostgreSQL with `@neondatabase/serverless` and Drizzle Kit for migrations.
+*   **Database**: Dual-mode system with Neon Serverless PostgreSQL (`@neondatabase/serverless`) for Replit and SQLite (`better-sqlite3`) for local development, managed by Drizzle ORM with automatic environment detection.
 *   **UI Component Libraries**: Radix UI (primitives), Heroicons, React Icons, Recharts (data visualization).
 *   **Puter.js**: Free unlimited Text-to-Speech (TTS) using Neural and Generative quality engines for AI voice output.
+
+## Local Development Setup
+StreamDachi supports dual-mode operation with automatic environment detection. The system seamlessly switches between PostgreSQL (Replit/production) and SQLite (local development) with zero configuration required. Local development features include:
+
+*   **One-Click Launchers**: `START_LOCAL.bat` (Windows) and `run_local.sh` (Mac/Linux) for instant local testing with automatic dependency installation and SQLite database creation.
+*   **Visual Studio Code Integration**: Pre-configured `.vscode` folder with tasks.json, launch.json, and settings.json. Press F5 to start with full debugging support, breakpoints, and integrated terminal.
+*   **Database Auto-Detection**: Uses `process.env.REPLIT` to automatically select PostgreSQL or SQLite with identical schema across both systems.
+*   **Offline Capability**: Local SQLite database (`app.db`) enables development without cloud database dependency while maintaining full feature parity.
+*   **Comprehensive Documentation**: `QUICK_START.md`, `LOCAL_SETUP.md`, `VSCODE_SETUP.md`, and `CLEANUP_REPORT.md` provide complete setup and troubleshooting guides.
+
+## Recent Updates
+*   **November 5, 2025**: Added dual-mode database system with automatic PostgreSQL/SQLite switching, VS Code integration with F5 debugging support, one-click local launchers, and comprehensive local development documentation. Completed codebase cleanup scan confirming production-ready quality with zero dead code or unused imports.

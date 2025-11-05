@@ -18,7 +18,9 @@ StreamDachi works in **two modes** automatically:
 
 ## 🎯 Running Locally (Super Easy!)
 
-### Windows
+### Three Ways to Start!
+
+#### Option 1: Batch File (Windows)
 
 **Just double-click:**
 ```
@@ -32,6 +34,25 @@ That's it! The launcher will:
 - ✅ Show you when it's ready
 
 **Stop the server:** Press `Ctrl+C` in the window
+
+#### Option 2: Visual Studio Code (BEST for Development!)
+
+**Press F5 - That's it!**
+
+1. **Open folder** in VS Code
+2. **Press F5** key
+3. **Server starts** automatically
+4. **Debug & test** with breakpoints
+
+**Why VS Code?**
+- 🐛 **Debug mode** - Set breakpoints, inspect variables
+- 📊 **Integrated terminal** - All logs in one place  
+- 🔄 **Auto-reload** - Changes refresh instantly
+- ⚡ **One key** - Just press F5!
+
+**See**: `VSCODE_SETUP.md` for full guide
+
+#### Option 3: Terminal (Mac/Linux)
 
 ---
 

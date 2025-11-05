@@ -15,16 +15,30 @@ Detection happens via `process.env.REPLIT` - no manual configuration required!
 
 ## 💻 Running Locally (Windows)
 
-### Quick Start
+### Quick Start - Three Ways to Start!
 
+#### Option 1: Batch File (Double-Click)
 1. **Download** all files to your computer
-2. **Double-click** `run_local.bat`
+2. **Double-click** `START_LOCAL.bat`
 3. **Open browser** to `http://localhost:5000`
+
+#### Option 2: Visual Studio Code (Recommended for Development)
+1. **Open folder** in VS Code
+2. **Press F5** or click the "Run and Debug" button (▶️)
+3. Select "🚀 Launch StreamDachi (Local)"
+4. **Auto-opens** at `http://localhost:5000`
+
+#### Option 3: VS Code Task Runner
+1. **Open VS Code**
+2. **Press** `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
+3. Type "Run Task" and select **Tasks: Run Task**
+4. Select "🚀 Start StreamDachi (Local Mode)"
+5. **Opens** in integrated terminal
 
 ### What Happens
 
-The batch file will:
-- Install all dependencies (`npm install`)
+The launchers will:
+- Install all dependencies (`npm install`) if needed
 - Create `app.db` SQLite database automatically
 - Start the server on port 5000
 - Connect to Twitch using your credentials
@@ -112,23 +126,106 @@ The dual-mode system automatically:
 - Selects the correct database
 - Uses appropriate connection settings
 
-### Environment Variables (Optional)
-
-Local mode works without any environment variables. However, you still need:
-
-- `TWITCH_CLIENT_ID` - For Twitch API
-- `TWITCH_CLIENT_SECRET` - For OAuth
-- `GROQ_API_KEY` - For AI features
-- `SESSION_SECRET` - For session security
+### Environment Variables (Required for Full Features)
 
 Create a `.env` file in the project root:
 
 ```env
+# Twitch Integration (Required)
 TWITCH_CLIENT_ID=your_client_id_here
 TWITCH_CLIENT_SECRET=your_client_secret_here
+
+# AI Features (Required)
 GROQ_API_KEY=your_groq_key_here
+
+# Session Security (Required)
 SESSION_SECRET=your_random_secret_here
 ```
+
+**How to Get API Keys:**
+
+1. **Twitch**: Visit [Twitch Developer Console](https://dev.twitch.tv/console/apps)
+   - Create a new application
+   - Set OAuth Redirect URL to `http://localhost:5000/auth/twitch/callback`
+   - Copy Client ID and Client Secret
+
+2. **Groq AI**: Visit [Groq Console](https://console.groq.com/)
+   - Sign up for free account
+   - Create new API key
+   - Copy the key (starts with `gsk_`)
+
+3. **Session Secret**: Generate a random string
+   - Use: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   - Or any random 64+ character string
+
+---
+
+## 📦 System Requirements & Dependencies
+
+### Prerequisites
+
+Before running StreamDachi locally, ensure you have:
+
+1. **Node.js** (v18 or higher)
+   - Download: [https://nodejs.org/](https://nodejs.org/)
+   - Check version: `node --version`
+
+2. **npm** (comes with Node.js)
+   - Check version: `npm --version`
+
+3. **Git** (optional, for cloning)
+   - Download: [https://git-scm.com/](https://git-scm.com/)
+
+### Core Dependencies
+
+StreamDachi uses these major packages (auto-installed via `npm install`):
+
+#### Frontend
+- **React 18** - UI framework with TypeScript
+- **Vite** - Fast build tool and dev server
+- **Wouter** - Lightweight routing (10+ pages)
+- **TanStack Query v5** - Server state management
+- **Tailwind CSS** - Styling framework
+- **Shadcn UI** - Component library (New York variant)
+- **Radix UI** - Accessible primitives
+- **Lucide React** - Icon library
+- **Recharts** - Data visualization charts
+- **Framer Motion** - Animations
+
+#### Backend
+- **Express.js** - Web server framework
+- **WebSocket (ws)** - Real-time communication
+- **Drizzle ORM** - Type-safe database ORM
+- **better-sqlite3** - SQLite driver (local mode)
+- **@neondatabase/serverless** - PostgreSQL driver (web mode)
+- **tsx** - TypeScript execution
+- **Passport.js** - Authentication
+
+#### External APIs
+- **tmi.js** - Twitch chat/IRC integration
+- **groq-sdk** - Groq AI API (Llama models)
+- **Web Speech API** - Voice recognition (browser)
+- **Puter.js** - Text-to-Speech (free unlimited)
+
+#### Development Tools
+- **TypeScript** - Type safety
+- **drizzle-kit** - Database migrations
+- **Zod** - Schema validation
+- **ESBuild** - Fast bundler
+
+### Full Dependency List
+
+Run `npm install` to automatically install all 70+ packages, including:
+
+**UI Components**: 25+ Radix UI primitives (dialog, dropdown, select, etc.)
+**TypeScript Types**: @types packages for all major libraries
+**Utilities**: clsx, tailwind-merge, class-variance-authority
+**Forms**: react-hook-form, @hookform/resolvers
+**Session Management**: express-session, connect-pg-simple
+**Date Handling**: date-fns
+**And more!**
+
+All dependencies are listed in `package.json` and auto-installed.
 
 ---
 

@@ -1,32 +1,4 @@
-// Reference: javascript_database blueprint
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+// Dual-mode database: Auto-switches between PostgreSQL (Replit) and SQLite (local)
+// Uses db-config.ts to detect environment and configure database accordingly
 
-neonConfig.webSocketConstructor = ws;
-
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
-
-// Handle pool errors gracefully
-pool.on('error', (err) => {
-  console.error('Unexpected database error on idle client', err);
-});
-
-// Handle connection errors
-pool.on('connect', () => {
-  console.log('Database connection established');
-});
-
-export const db = drizzle({ client: pool, schema });
+export { db, pool, sqliteInstance, schema, isReplit, isLocal } from './db-config';

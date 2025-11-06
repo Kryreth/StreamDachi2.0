@@ -5,6 +5,7 @@ import { WebSocket } from "ws";
 import type { DachiStreamService } from "./dachistream-service";
 import { twitchOAuthService } from "./twitch-oauth-service";
 import { ActiveChattersService } from "./active-chatters-service";
+import { databaseManager } from "./database-manager";
 
 let twitchClient: tmi.Client | null = null;
 const connectedClients: Set<WebSocket> = new Set();
@@ -218,6 +219,19 @@ export async function connectToTwitch(channel: string, username: string = "justi
           isCommand: aiResult.isCommand,
           requiresResponse: aiResult.requiresResponse,
         });
+      }
+
+      // Save to DATABASE folder for organized local storage
+      try {
+        await databaseManager.appendUserMessage(userId, chatMessage, analysis || undefined);
+        
+        // Update user profile in DATABASE folder
+        const profile = await storage.getUserProfile(userId);
+        if (profile) {
+          await databaseManager.saveUserProfile(userId, profile);
+        }
+      } catch (error) {
+        console.error('Error saving to DATABASE folder:', error);
       }
 
       broadcastToClients("new_message", {

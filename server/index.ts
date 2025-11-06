@@ -6,6 +6,7 @@ import { DachiStreamService } from "./dachistream-service";
 import { storage } from "./storage";
 import { generateDachiStreamResponse } from "./groq-service";
 import { setDachiStreamService } from "./twitch-client";
+import { databaseManager } from "./database-manager";
 
 const app = express();
 app.use(express.json());
@@ -81,6 +82,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, async () => {
     log(`serving on port ${port}`);
+    
+    // Initialize DATABASE folder structure
+    await databaseManager.ensureDirectories();
+    log('DATABASE folder structure initialized');
     
     // Start AI learning service
     startAiLearning(10).catch(error => {

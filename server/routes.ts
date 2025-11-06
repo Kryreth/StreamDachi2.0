@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { databaseManager } from "./database-manager";
 import {
   insertChatMessageSchema,
   insertAiAnalysisSchema,
@@ -1075,6 +1076,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating voice personality:", error);
       res.status(500).json({ error: "Failed to update voice personality" });
+    }
+  });
+
+  // DATABASE Folder Management
+  app.get("/api/database/users", async (req, res) => {
+    try {
+      const folders = await databaseManager.getAllUserFolders();
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching user folders:", error);
+      res.status(500).json({ error: "Failed to fetch user folders" });
+    }
+  });
+
+  app.get("/api/database/users/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const data = await databaseManager.exportUserData(userId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      res.status(500).json({ error: "Failed to fetch user data" });
+    }
+  });
+
+  app.get("/api/database/users/:userId/vibe-reports", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const reports = await databaseManager.getVibeReports(userId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching vibe reports:", error);
+      res.status(500).json({ error: "Failed to fetch vibe reports" });
+    }
+  });
+
+  app.get("/api/database/users/:userId/vibe-reports/:sessionDate", async (req, res) => {
+    try {
+      const { userId, sessionDate } = req.params;
+      const report = await databaseManager.getVibeReport(userId, sessionDate);
+      if (!report) {
+        return res.status(404).json({ error: "Vibe report not found" });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching vibe report:", error);
+      res.status(500).json({ error: "Failed to fetch vibe report" });
     }
   });
 

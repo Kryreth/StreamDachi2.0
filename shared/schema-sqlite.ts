@@ -219,6 +219,26 @@ export const settings = sqliteTable("settings", {
   updatedAt: integer("updated_at", { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 
+// Follower Events Table - Track follows, unfollows, subs, bits
+export const followerEvents = sqliteTable("follower_events", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull(), // Twitch user ID
+  username: text("username").notNull(),
+  eventType: text("event_type").notNull(), // follow, unfollow, subscribe, resubscribe, gift_sub, cheer
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  
+  // Event-specific data
+  tier: text("tier"), // For subs: "1000", "2000", "3000"
+  months: integer("months"), // For resubs: cumulative months
+  bits: integer("bits"), // For cheers: amount of bits
+  giftedBy: text("gifted_by"), // For gift subs: who gifted
+  message: text("message"), // Optional message with event
+  
+  // Follower-specific tracking
+  followedAt: integer("followed_at", { mode: "timestamp" }), // When they first followed (for follow events)
+  isFollower: integer("is_follower", { mode: "boolean" }), // Current follower status at time of event
+});
+
 // Relations
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   analysis: one(aiAnalysis, {
@@ -287,6 +307,11 @@ export const insertModerationActionSchema = createInsertSchema(moderationActions
   timestamp: true,
 });
 
+export const insertFollowerEventSchema = createInsertSchema(followerEvents).omit({
+  id: true,
+  timestamp: true,
+});
+
 // Types (same as PostgreSQL version)
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -317,6 +342,9 @@ export type InsertRaid = z.infer<typeof insertRaidSchema>;
 
 export type ModerationAction = typeof moderationActions.$inferSelect;
 export type InsertModerationAction = z.infer<typeof insertModerationActionSchema>;
+
+export type FollowerEvent = typeof followerEvents.$inferSelect;
+export type InsertFollowerEvent = z.infer<typeof insertFollowerEventSchema>;
 
 // Extended types for frontend
 export type ChatMessageWithAnalysis = ChatMessage & {

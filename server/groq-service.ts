@@ -9,6 +9,15 @@ export interface SentimentAnalysisResult {
   sentimentScore: number;
   toxicity: boolean;
   categories: string[];
+  // Enhanced fields
+  emotions: string[];
+  primaryEmotion: string;
+  emotionIntensity: number;
+  intent: string;
+  intentConfidence: number;
+  isQuestion: boolean;
+  isCommand: boolean;
+  requiresResponse: boolean;
 }
 
 export interface EnhancedSpeechResult {
@@ -63,14 +72,59 @@ export async function analyzeChatMessage(message: string): Promise<SentimentAnal
       messages: [
         {
           role: "system",
-          content: `You are a sentiment analysis expert for Twitch chat messages. Analyze the sentiment and toxicity of messages.
-          
-Respond with JSON in this exact format:
+          content: `You are an expert at analyzing Twitch chat messages for deep emotional and intentional understanding.
+
+Analyze each message and provide comprehensive insights about:
+1. Basic sentiment and toxicity
+2. ALL emotions present (can have multiple)
+3. Primary/dominant emotion
+4. User's intent (what they're trying to do/say)
+5. Context clues (is it a question, command, etc.)
+
+EMOTION OPTIONS:
+- comedy/funny (trying to make people laugh)
+- serious (genuine, sincere, no joking)
+- playful (lighthearted, teasing, fun)
+- sarcastic (ironic, mocking tone)
+- angry (frustrated, upset, hostile)
+- excited (enthusiastic, hyped, energetic)
+- supportive (encouraging, helpful, kind)
+- confused (uncertain, asking for clarity)
+- sad (down, disappointed)
+- curious (wanting to learn/know more)
+- trolling (intentionally provocative, baiting)
+- bored (disengaged, uninterested)
+- impressed (amazed, in awe)
+- competitive (rivalry, challenge)
+
+INTENT OPTIONS:
+- joking (making a joke)
+- asking_question (seeking information)
+- being_supportive (offering encouragement)
+- trolling (deliberately provocative)
+- sharing_info (providing information)
+- requesting_help (needs assistance)
+- giving_feedback (providing opinion/critique)
+- chatting_casually (just hanging out)
+- reacting_to_gameplay (responding to stream action)
+- complaining (expressing dissatisfaction)
+- celebrating (expressing joy/victory)
+- teaching (explaining something)
+
+Respond with JSON:
 {
   "sentiment": "positive" | "neutral" | "negative",
-  "sentimentScore": 1-5 (1=very negative, 5=very positive),
+  "sentimentScore": 1-5,
   "toxicity": true | false,
-  "categories": ["category1", "category2"] (e.g., ["friendly", "gaming"] or ["toxic", "spam"])
+  "categories": ["category1", "category2"],
+  "emotions": ["emotion1", "emotion2", ...] (all emotions detected),
+  "primaryEmotion": "main_emotion",
+  "emotionIntensity": 1-10 (how intense is the emotion),
+  "intent": "what_theyre_trying_to_do",
+  "intentConfidence": 1-10 (how confident are you),
+  "isQuestion": true | false,
+  "isCommand": true | false (starts with ! or is directive),
+  "requiresResponse": true | false (should streamer respond)
 }`,
         },
         {
@@ -89,6 +143,14 @@ Respond with JSON in this exact format:
       sentimentScore: Math.max(1, Math.min(5, result.sentimentScore || 3)),
       toxicity: result.toxicity || false,
       categories: result.categories || [],
+      emotions: result.emotions || [],
+      primaryEmotion: result.primaryEmotion || "neutral",
+      emotionIntensity: Math.max(1, Math.min(10, result.emotionIntensity || 5)),
+      intent: result.intent || "chatting_casually",
+      intentConfidence: Math.max(1, Math.min(10, result.intentConfidence || 5)),
+      isQuestion: result.isQuestion || false,
+      isCommand: result.isCommand || false,
+      requiresResponse: result.requiresResponse || false,
     };
   } catch (error) {
     console.error("Error analyzing message with Groq:", error);
@@ -97,6 +159,14 @@ Respond with JSON in this exact format:
       sentimentScore: 3,
       toxicity: false,
       categories: ["error"],
+      emotions: [],
+      primaryEmotion: "neutral",
+      emotionIntensity: 5,
+      intent: "unknown",
+      intentConfidence: 1,
+      isQuestion: false,
+      isCommand: false,
+      requiresResponse: false,
     };
   }
 }

@@ -63,7 +63,7 @@ export const chatMessages = pgTable("chat_messages", {
   metadata: jsonb("metadata"), // Additional event-specific data
 });
 
-// AI Analysis Table
+// AI Analysis Table - Enhanced with emotions and intent
 export const aiAnalysis = pgTable("ai_analysis", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   messageId: varchar("message_id").notNull().references(() => chatMessages.id, { onDelete: "cascade" }),
@@ -71,6 +71,21 @@ export const aiAnalysis = pgTable("ai_analysis", {
   sentimentScore: integer("sentiment_score").notNull(), // 1-5
   toxicity: boolean("toxicity").notNull().default(false),
   categories: jsonb("categories").$type<string[]>(),
+  
+  // Enhanced Emotion Analysis
+  emotions: jsonb("emotions").$type<string[]>().default(sql`'[]'::jsonb`), // All detected emotions
+  primaryEmotion: text("primary_emotion"), // Main emotion: comedy, serious, playful, sarcastic, angry, excited, supportive, confused, etc.
+  emotionIntensity: integer("emotion_intensity").default(5), // 1-10 scale
+  
+  // Intent Detection
+  intent: text("intent"), // joking, asking_question, being_supportive, trolling, sharing_info, requesting_help, etc.
+  intentConfidence: integer("intent_confidence").default(5), // 1-10 confidence scale
+  
+  // Context Understanding
+  isQuestion: boolean("is_question").default(false),
+  isCommand: boolean("is_command").default(false),
+  requiresResponse: boolean("requires_response").default(false),
+  
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 

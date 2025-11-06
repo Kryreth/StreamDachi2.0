@@ -67,7 +67,7 @@ export const chatMessages = sqliteTable("chat_messages", {
   metadata: text("metadata", { mode: 'json' }),
 });
 
-// AI Analysis Table
+// AI Analysis Table - Enhanced with emotions and intent
 export const aiAnalysis = sqliteTable("ai_analysis", {
   id: text("id").primaryKey().$defaultFn(() => uuid()),
   messageId: text("message_id").notNull().references(() => chatMessages.id, { onDelete: "cascade" }),
@@ -75,6 +75,21 @@ export const aiAnalysis = sqliteTable("ai_analysis", {
   sentimentScore: integer("sentiment_score").notNull(),
   toxicity: integer("toxicity", { mode: 'boolean' }).notNull().default(false),
   categories: text("categories", { mode: 'json' }).$type<string[]>(),
+  
+  // Enhanced Emotion Analysis
+  emotions: text("emotions", { mode: 'json' }).$type<string[]>().default(sql`'[]'`), // All detected emotions
+  primaryEmotion: text("primary_emotion"), // Main emotion: comedy, serious, playful, sarcastic, angry, excited, supportive, confused, etc.
+  emotionIntensity: integer("emotion_intensity").default(5), // 1-10 scale
+  
+  // Intent Detection
+  intent: text("intent"), // joking, asking_question, being_supportive, trolling, sharing_info, requesting_help, etc.
+  intentConfidence: integer("intent_confidence").default(5), // 1-10 confidence scale
+  
+  // Context Understanding
+  isQuestion: integer("is_question", { mode: 'boolean' }).default(false),
+  isCommand: integer("is_command", { mode: 'boolean' }).default(false),
+  requiresResponse: integer("requires_response", { mode: 'boolean' }).default(false),
+  
   timestamp: integer("timestamp", { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 });
 

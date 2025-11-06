@@ -208,6 +208,15 @@ export async function connectToTwitch(channel: string, username: string = "justi
           sentimentScore: aiResult.sentimentScore,
           toxicity: aiResult.toxicity,
           categories: aiResult.categories,
+          // Enhanced emotion and intent fields
+          emotions: aiResult.emotions,
+          primaryEmotion: aiResult.primaryEmotion,
+          emotionIntensity: aiResult.emotionIntensity,
+          intent: aiResult.intent,
+          intentConfidence: aiResult.intentConfidence,
+          isQuestion: aiResult.isQuestion,
+          isCommand: aiResult.isCommand,
+          requiresResponse: aiResult.requiresResponse,
         });
       }
 

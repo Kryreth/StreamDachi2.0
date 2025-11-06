@@ -283,6 +283,15 @@ export class DatabaseStorage implements IStorage {
         sentimentScore: insertAnalysis.sentimentScore,
         toxicity: insertAnalysis.toxicity,
         categories: insertAnalysis.categories as string[] | undefined,
+        // Enhanced emotion and intent fields
+        emotions: insertAnalysis.emotions as string[] | undefined,
+        primaryEmotion: insertAnalysis.primaryEmotion,
+        emotionIntensity: insertAnalysis.emotionIntensity,
+        intent: insertAnalysis.intent,
+        intentConfidence: insertAnalysis.intentConfidence,
+        isQuestion: insertAnalysis.isQuestion,
+        isCommand: insertAnalysis.isCommand,
+        requiresResponse: insertAnalysis.requiresResponse,
       })
       .returning();
     return analysis;

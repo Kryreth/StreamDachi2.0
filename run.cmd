@@ -24,6 +24,7 @@ if not exist "%SERVER_DIR%\%SERVER_MAIN%" (
 )
 
 pushd "%SERVER_DIR%"
+<<<<<<< HEAD
 start "StreamDachi Server" /min "%NODE_EXE%" "%SERVER_MAIN%"
 popd
 
@@ -33,6 +34,17 @@ if exist "%SHELL_EXE%" (
   start "" "%SHELL_EXE%"
 ) else (
   echo [Launcher] Window app not found. Opening browser http://127.0.0.1:4173/
+=======
+start "TwitchMind Server" /min "%NODE_EXE%" "%SERVER_MAIN%"
+popd
+
+REM Prefer shell window if available
+if exist "%SHELL_EXE%" (
+  echo [Launcher] Launching shell: "%SHELL_EXE%"
+  start "" "%SHELL_EXE%"
+) else (
+  echo [Launcher] Shell not found. Opening browser at http://127.0.0.1:4173/
+>>>>>>> 31dbe52 (2025-11-09 16:21:47 sync)
   start "" "http://127.0.0.1:4173/"
 )
 

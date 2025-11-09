@@ -1,4 +1,4 @@
-import http from "http";
+import http from "node:http";
 
 /**
  * Wrapper that always provides `registerRoutes(app)`:
@@ -14,9 +14,9 @@ export async function registerRoutes(app: any) {
     if (typeof fn === "function") {
       return await fn(app);
     }
-  } catch (e) {
-    // ignore and fall back
-  }
+  } catch(e) {
+    console.error('Error while registering routes:', e);
+}
   const server = http.createServer(app);
   return server;
 }

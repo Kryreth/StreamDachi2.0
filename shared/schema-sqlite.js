@@ -5,7 +5,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 const sqlite_core_1 = require("drizzle-orm/sqlite-core");
 const drizzle_zod_1 = require("drizzle-zod");
 const drizzle_orm_2 = require("drizzle-orm");
-const crypto_1 = require("crypto");
+const crypto_1 = require("node:crypto");
 // Helper for UUID generation in SQLite
 const uuid = () => (0, crypto_1.randomUUID)();
 // User Profiles Table - Track VIP/Mod/Subscriber status + Personality Profiling

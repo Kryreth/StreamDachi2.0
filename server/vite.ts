@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import path from "path";
-import fs from "fs";
+import fs from "node:fs";
 import express from "express";
 
 export function log(...args: any[]) {

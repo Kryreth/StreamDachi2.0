@@ -1,5 +1,5 @@
-import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+﻿import express, { type Request, Response, NextFunction } from "express";
 import { setupVite, serveStatic, log } from "./vite";
 import { startAiLearning } from "./ai-learning-service";
 import { DachiStreamService } from "./dachistream-service";
@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { generateDachiStreamResponse } from "./groq-service";
 import { setDachiStreamService } from "./twitch-client";
 import { databaseManager } from "./database-manager";
+import 'dotenv/config';
 
 const app = express();
 app.use(express.json());
@@ -32,7 +33,7 @@ app.use((req, res, next) => {
       }
 
       if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+        logLine = logLine.slice(0, 79) + "â€¦";
       }
 
       log(logLine);
@@ -76,11 +77,7 @@ app.use((req, res, next) => {
   (app as any).dachiStreamService = dachiStreamService;
 
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, async () => {
+  server.listen(port, async () => {
     log(`serving on port ${port}`);
     
     // Initialize DATABASE folder structure
@@ -127,9 +124,9 @@ app.use((req, res, next) => {
                 const { sendChatMessage } = await import("./twitch-client");
                 const sent = await sendChatMessage(aiResponse);
                 if (sent) {
-                  console.log("✓ AI response sent to Twitch chat");
+                  console.log("âœ“ AI response sent to Twitch chat");
                 } else {
-                  console.error("✗ Failed to send AI response to Twitch chat");
+                  console.error("âœ— Failed to send AI response to Twitch chat");
                 }
               }
             }
@@ -144,3 +141,5 @@ app.use((req, res, next) => {
     );
   });
 })();
+
+

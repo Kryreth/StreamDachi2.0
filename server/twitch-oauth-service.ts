@@ -310,7 +310,7 @@ export class TwitchOAuthService {
     const appToken = await this.getAppAccessToken();
 
     // Twitch API allows up to 100 user IDs per request
-    const chunks = [];
+const chunks: string[][] = [];
     for (let i = 0; i < userIds.length; i += 100) {
       chunks.push(userIds.slice(i, i + 100));
     }
@@ -573,3 +573,5 @@ export class TwitchOAuthService {
 }
 
 export const twitchOAuthService = new TwitchOAuthService();
+
+

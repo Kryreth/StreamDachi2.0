@@ -11,7 +11,7 @@ import {
   insertSettingsSchema,
   insertUserProfileSchema,
   insertUserInsightSchema,
-} from "@shared/schema";
+} from "../shared/schema";
 import { connectToTwitch, disconnectFromTwitch, addWebSocketClient, getTwitchClient } from "./twitch-client";
 import { twitchOAuthService } from "./twitch-oauth-service";
 
@@ -990,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { transcribeAudio } = await import("./groq-service");
       
       // Create a File object from the buffer
-      const audioFile = new File([req.file.buffer], req.file.originalname, {
+      const audioFile = new File([new Uint8Array(req.file.buffer)], req.file.originalname, {
         type: req.file.mimetype,
       });
       
@@ -1128,3 +1128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
+
+// Added to support both named and default imports
+export default registerRoutes;

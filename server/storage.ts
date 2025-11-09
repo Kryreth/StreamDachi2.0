@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 // Reference: javascript_database blueprint
 import {
   chatMessages,
@@ -32,7 +33,7 @@ import {
   type InsertVoiceAiResponse,
   type ModerationAction,
   type InsertModerationAction,
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 

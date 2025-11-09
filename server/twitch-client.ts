@@ -67,7 +67,7 @@ async function ensureValidAccessToken() {
         expiresAt
       );
       
-      console.log(`✓ Token refreshed successfully, expires at: ${expiresAt.toISOString()}`);
+      console.log(`âœ“ Token refreshed successfully, expires at: ${expiresAt.toISOString()}`);
       
       return tokenResponse.access_token;
     } catch (error) {
@@ -78,7 +78,7 @@ async function ensureValidAccessToken() {
   }
   
   // Token is still valid
-  console.log(`✓ Access token is valid until: ${user.tokenExpiresAt?.toISOString()}`);
+  console.log(`âœ“ Access token is valid until: ${user.tokenExpiresAt?.toISOString()}`);
   return user.accessToken;
 }
 
@@ -168,7 +168,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
           
           if (now - lastShoutout > cooldownMs) {
             await storage.updateShoutoutTimestamp(userId);
-            const shoutoutMessage = `🎉 Welcome VIP @${username}! Thanks for being amazing! 💜`;
+            const shoutoutMessage = `ðŸŽ‰ Welcome VIP @${username}! Thanks for being amazing! ðŸ’œ`;
             broadcastToClients("auto_shoutout", {
               username,
               message: shoutoutMessage,
@@ -200,7 +200,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
 
       const enableAiAnalysis = settings ? settings.enableAiAnalysis : true;
 
-      let analysis = null;
+      let analysis: any = null;
       if (enableAiAnalysis) {
         const aiResult = await analyzeChatMessage(message);
         analysis = await storage.createAiAnalysis({
@@ -271,7 +271,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
 
   // Listen for incoming raids
   twitchClient.on("raided", async (channel, username, viewers) => {
-    console.log(`🎉 RAID! ${username} raided with ${viewers} viewers!`);
+    console.log(`ðŸŽ‰ RAID! ${username} raided with ${viewers} viewers!`);
     
     try {
       // Store the raid in database
@@ -289,7 +289,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
       await storage.createChatMessage({
         userId: username,
         username,
-        message: `🎉 RAID from ${username} with ${viewers} viewers!`,
+        message: `ðŸŽ‰ RAID from ${username} with ${viewers} viewers!`,
         channel,
         eventType: "raid",
         userColor: "#9146FF",
@@ -343,3 +343,4 @@ export async function sendChatMessage(message: string): Promise<boolean> {
     return false;
   }
 }
+

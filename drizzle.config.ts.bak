@@ -1,0 +1,16 @@
+﻿import "dotenv/config";
+import { defineConfig } from "drizzle-kit";
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is missing. Set it in your .env (e.g., DATABASE_URL=\"file:./data/twitchmind.db\").");
+}
+
+export default defineConfig({
+  out: "./drizzle",                // migrations output folder
+  schema: "./shared/schema.ts",    // keep your existing schema path
+  dialect: "sqlite",
+  driver: "better-sqlite",
+  dbCredentials: {
+    url: process.env.DATABASE_URL, // e.g. file:./data/twitchmind.db
+  },
+});

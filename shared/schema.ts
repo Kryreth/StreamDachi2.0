@@ -1,117 +1,142 @@
+﻿// shared/schema.ts (SQLite version)
+// Converts your original Postgres pg-core schema to SQLite sqlite-core
+// Uses better-sqlite3 + drizzle-orm/sqlite-core
+
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
-// User Profiles Table - Track VIP/Mod/Subscriber status + Personality Profiling
-export const userProfiles = pgTable("user_profiles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+// Helper for UUID generation in SQLite
+const uuid = () => randomUUID();
+
+/* ================================
+   User Profiles
+================================ */
+export const userProfiles = sqliteTable("user_profiles", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   userId: text("user_id").notNull().unique(), // Twitch user ID
   username: text("username").notNull(),
-  isVip: boolean("is_vip").notNull().default(false),
-  isMod: boolean("is_mod").notNull().default(false),
-  isSubscriber: boolean("is_subscriber").notNull().default(false),
+  isVip: integer("is_vip", { mode: "boolean" }).notNull().default(false),
+  isMod: integer("is_mod", { mode: "boolean" }).notNull().default(false),
+  isSubscriber: integer("is_subscriber", { mode: "boolean" }).notNull().default(false),
   channelPointsBalance: integer("channel_points_balance").default(0),
-  wasAnonymous: boolean("was_anonymous").notNull().default(false),
-  firstSeen: timestamp("first_seen").notNull().defaultNow(),
-  lastSeen: timestamp("last_seen").notNull().defaultNow(),
-  shoutoutLastGiven: timestamp("shoutout_last_given"),
-  
+  wasAnonymous: integer("was_anonymous", { mode: "boolean" }).notNull().default(false),
+  firstSeen: integer("first_seen", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  lastSeen: integer("last_seen", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  shoutoutLastGiven: integer("shoutout_last_given", { mode: "timestamp" }),
+
   // Personality Tracking (1-10 scale, measured over time by AI)
-  humorLevel: integer("humor_level").default(5), // How funny/lighthearted the user is
-  knowledgeLevel: integer("knowledge_level").default(5), // How knowledgeable/informative
-  bluntnessLevel: integer("bluntness_level").default(5), // How direct/honest
-  rudenessLevel: integer("rudeness_level").default(5), // How rude/toxic (lower is better)
-  
+  humorLevel: integer("humor_level").default(5),
+  knowledgeLevel: integer("knowledge_level").default(5),
+  bluntnessLevel: integer("bluntness_level").default(5),
+  rudenessLevel: integer("rudeness_level").default(5),
+
   // Profile Information (NO PII - usernames, roles, preferences only)
-  timezone: text("timezone"), // e.g., "America/New_York"
-  twitchUrl: text("twitch_url"), // Full Twitch channel URL
-  previousNames: jsonb("previous_names").$type<string[]>().default(sql`'[]'::jsonb`), // Name change history
-  hobbies: jsonb("hobbies").$type<string[]>().default(sql`'[]'::jsonb`), // User interests
-  likes: jsonb("likes").$type<string[]>().default(sql`'[]'::jsonb`), // Things they enjoy
-  dislikes: jsonb("dislikes").$type<string[]>().default(sql`'[]'::jsonb`), // Things they don't like
-  
+  timezone: text("timezone"),
+  twitchUrl: text("twitch_url"),
+  previousNames: text("previous_names", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
+  hobbies: text("hobbies", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
+  likes: text("likes", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
+  dislikes: text("dislikes", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
+
   // Social Media & Links (URLs only, no PII)
-  profilePictureUrl: text("profile_picture_url"), // Twitch avatar URL
-  socials: jsonb("socials").$type<Record<string, string>>().default(sql`'{}'::jsonb`), // {twitter: "url", discord: "username", etc}
-  customLinks: jsonb("custom_links").$type<Array<{title: string, url: string}>>().default(sql`'[]'::jsonb`), // Custom links/images
+  profilePictureUrl: text("profile_picture_url"),
+  socials: text("socials", { mode: "json" }).$type<Record<string, string>>().default(sql`'{}'`),
+  customLinks: text("custom_links", { mode: "json" }).$type<Array<{ title: string; url: string }>>().default(sql`'[]'`),
 });
 
-// User Insights Table - AI Learning Engine
-export const userInsights = pgTable("user_insights", {
-  userId: text("user_id").primaryKey(), // References userProfiles.userId
-  summary: text("summary"), // AI-generated personality summary
-  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+/* ================================
+   User Insights
+================================ */
+export const userInsights = sqliteTable("user_insights", {
+  userId: text("user_id").primaryKey(), // References userProfiles.userId (logical)
+  summary: text("summary"),
+  lastUpdated: integer("last_updated", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   totalMessages: integer("total_messages").notNull().default(0),
-  recentTags: jsonb("recent_tags").$type<string[]>().default(sql`'[]'::jsonb`),
+  recentTags: text("recent_tags", { mode: "json" }).$type<string[]>().default(sql`'[]'`),
 });
 
-// Chat Messages Table - Enhanced with stream tracking
-export const chatMessages = pgTable("chat_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Chat Messages
+================================ */
+export const chatMessages = sqliteTable("chat_messages", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   userId: text("user_id"), // Twitch user ID (may be null for anonymous)
   username: text("username").notNull(),
   message: text("message").notNull(),
   channel: text("channel").notNull(),
   streamId: text("stream_id"), // Unique per streaming session
   eventType: text("event_type").notNull().default("chat"), // chat, redeem, raid, sub, etc.
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   userColor: text("user_color"),
-  badges: jsonb("badges").$type<Record<string, string>>(),
-  emotes: jsonb("emotes"),
-  metadata: jsonb("metadata"), // Additional event-specific data
+  badges: text("badges", { mode: "json" }).$type<Record<string, string>>(),
+  emotes: text("emotes", { mode: "json" }),
+  metadata: text("metadata", { mode: "json" }), // Additional event-specific data
 });
 
-// AI Analysis Table - Enhanced with emotions and intent
-export const aiAnalysis = pgTable("ai_analysis", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  messageId: varchar("message_id").notNull().references(() => chatMessages.id, { onDelete: "cascade" }),
+/* ================================
+   AI Analysis
+================================ */
+export const aiAnalysis = sqliteTable("ai_analysis", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
+  messageId: text("message_id")
+    .notNull()
+    .references(() => chatMessages.id, { onDelete: "cascade" }),
+
   sentiment: text("sentiment").notNull(), // positive, neutral, negative
   sentimentScore: integer("sentiment_score").notNull(), // 1-5
-  toxicity: boolean("toxicity").notNull().default(false),
-  categories: jsonb("categories").$type<string[]>(),
-  
+  toxicity: integer("toxicity", { mode: "boolean" }).notNull().default(false),
+  categories: text("categories", { mode: "json" }).$type<string[]>(),
+
   // Enhanced Emotion Analysis
-  emotions: jsonb("emotions").$type<string[]>().default(sql`'[]'::jsonb`), // All detected emotions
-  primaryEmotion: text("primary_emotion"), // Main emotion: comedy, serious, playful, sarcastic, angry, excited, supportive, confused, etc.
+  emotions: text("emotions", { mode: "json" }).$type<string[]>().default(sql`'[]'`), // All detected emotions
+  primaryEmotion: text("primary_emotion"), // Main emotion
   emotionIntensity: integer("emotion_intensity").default(5), // 1-10 scale
-  
+
   // Intent Detection
-  intent: text("intent"), // joking, asking_question, being_supportive, trolling, sharing_info, requesting_help, etc.
-  intentConfidence: integer("intent_confidence").default(5), // 1-10 confidence scale
-  
+  intent: text("intent"), // joking, asking_question, etc.
+  intentConfidence: integer("intent_confidence").default(5), // 1-10
+
   // Context Understanding
-  isQuestion: boolean("is_question").default(false),
-  isCommand: boolean("is_command").default(false),
-  requiresResponse: boolean("requires_response").default(false),
-  
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  isQuestion: integer("is_question", { mode: "boolean" }).default(false),
+  isCommand: integer("is_command", { mode: "boolean" }).default(false),
+  requiresResponse: integer("requires_response", { mode: "boolean" }).default(false),
+
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// AI Commands Table
-export const aiCommands = pgTable("ai_commands", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   AI Commands
+================================ */
+export const aiCommands = sqliteTable("ai_commands", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   trigger: text("trigger").notNull().unique(),
   prompt: text("prompt").notNull(),
   responseType: text("response_type").notNull(), // direct, analysis, generate
-  enabled: boolean("enabled").notNull().default(true),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   usageCount: integer("usage_count").notNull().default(0),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Voice AI Responses Table - History of voice transcriptions and AI rephrasing
-export const voiceAiResponses = pgTable("voice_ai_responses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Voice AI Responses
+================================ */
+export const voiceAiResponses = sqliteTable("voice_ai_responses", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   originalText: text("original_text").notNull(), // Raw voice transcription
   rephrasedText: text("rephrased_text").notNull(), // AI-rephrased version
-  wasSpoken: boolean("was_spoken").notNull().default(false), // Was it sent to TTS
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  wasSpoken: integer("was_spoken", { mode: "boolean" }).notNull().default(false), // Was it sent to TTS
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Authenticated Users Table - OAuth Login
-export const authenticatedUsers = pgTable("authenticated_users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Authenticated Users (OAuth)
+================================ */
+export const authenticatedUsers = sqliteTable("authenticated_users", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   twitchUserId: text("twitch_user_id").notNull().unique(),
   twitchUsername: text("twitch_username").notNull(),
   twitchDisplayName: text("twitch_display_name").notNull(),
@@ -119,24 +144,28 @@ export const authenticatedUsers = pgTable("authenticated_users", {
   twitchEmail: text("twitch_email"),
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
-  tokenExpiresAt: timestamp("token_expires_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Raids Table - Track incoming raids
-export const raids = pgTable("raids", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Raids
+================================ */
+export const raids = sqliteTable("raids", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   fromUserId: text("from_user_id").notNull(), // Raider's Twitch user ID
   fromUsername: text("from_username").notNull(), // Raider's username
   fromDisplayName: text("from_display_name").notNull(), // Raider's display name
   viewers: integer("viewers").notNull().default(0), // Number of viewers in raid
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Moderation Actions Table - Track Twitch mod events
-export const moderationActions = pgTable("moderation_actions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Moderation Actions
+================================ */
+export const moderationActions = sqliteTable("moderation_actions", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   actionType: text("action_type").notNull(), // timeout, ban, delete, clear
   targetUserId: text("target_user_id"), // User being moderated
   targetUsername: text("target_username").notNull(), // Username of moderated user
@@ -145,97 +174,103 @@ export const moderationActions = pgTable("moderation_actions", {
   duration: integer("duration"), // Timeout duration in seconds (null for ban/delete)
   reason: text("reason"), // Reason for action
   messageDeleted: text("message_deleted"), // Message text if deleted
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Settings Table - Enhanced with DachiPool configuration
-export const settings = pgTable("settings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Settings (incl. DachiPool)
+================================ */
+export const settings = sqliteTable("settings", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   twitchChannel: text("twitch_channel"),
   twitchUsername: text("twitch_username"),
-  autoModeration: boolean("auto_moderation").notNull().default(false),
+  autoModeration: integer("auto_moderation", { mode: "boolean" }).notNull().default(false),
   sentimentThreshold: integer("sentiment_threshold").notNull().default(2), // 1-5
-  enableAiAnalysis: boolean("enable_ai_analysis").notNull().default(true),
-  
+  enableAiAnalysis: integer("enable_ai_analysis", { mode: "boolean" }).notNull().default(true),
+
   // Browser Source Settings
-  browserSourceEnabled: boolean("browser_source_enabled").notNull().default(false),
+  browserSourceEnabled: integer("browser_source_enabled", { mode: "boolean" }).notNull().default(false),
   browserSourceToken: text("browser_source_token"), // Unique token for OBS URL
-  
+
   // DachiPool Settings
-  dachipoolEnabled: boolean("dachipool_enabled").notNull().default(true),
+  dachipoolEnabled: integer("dachipool_enabled", { mode: "boolean" }).notNull().default(true),
   dachipoolMaxChars: integer("dachipool_max_chars").notNull().default(1000),
   dachipoolEnergy: text("dachipool_energy").notNull().default("Balanced"), // Balanced, High, Low
   dachipoolMode: text("dachipool_mode").notNull().default("Auto"), // Auto, Manual
   dachipoolShoutoutCooldownHours: integer("dachipool_shoutout_cooldown_hours").notNull().default(24),
   dachipoolAiModel: text("dachipool_ai_model").notNull().default("llama-3.3-70b-versatile"),
-  dachipoolAiTemp: integer("dachipool_ai_temp").notNull().default(7), // Stored as 0-10, divide by 10
-  aiPersonality: text("ai_personality").notNull().default("Casual"), // Casual, Comedy, Quirky, Serious, Gaming, Professional
-  autoShoutoutsEnabled: boolean("auto_shoutouts_enabled").notNull().default(true),
-  
+  dachipoolAiTemp: integer("dachipool_ai_temp").notNull().default(7), // store 0-10
+  aiPersonality: text("ai_personality").notNull().default("Casual"),
+  autoShoutoutsEnabled: integer("auto_shoutouts_enabled", { mode: "boolean" }).notNull().default(true),
+
   // Audio Settings
   audioMicMode: text("audio_mic_mode").notNull().default("muted"), // muted, passthrough
   audioVoiceSelection: text("audio_voice_selection").default("Default"),
-  audioAiVoiceActive: boolean("audio_ai_voice_active").notNull().default(true),
-  audioSpeechCleanup: boolean("audio_speech_cleanup").notNull().default(true),
-  audioFallbackToTextOnly: boolean("audio_fallback_to_text_only").notNull().default(true),
+  audioAiVoiceActive: integer("audio_ai_voice_active", { mode: "boolean" }).notNull().default(true),
+  audioSpeechCleanup: integer("audio_speech_cleanup", { mode: "boolean" }).notNull().default(true),
+  audioFallbackToTextOnly: integer("audio_fallback_to_text_only", { mode: "boolean" }).notNull().default(true),
   audioCooldownBetweenReplies: integer("audio_cooldown_between_replies").notNull().default(5), // seconds
   audioMaxVoiceLength: integer("audio_max_voice_length").notNull().default(500), // characters
-  
+
   // Web Speech API TTS Settings
-  ttsEnabled: boolean("tts_enabled").notNull().default(false),
-  ttsVoice: text("tts_voice"), // Voice name from speechSynthesis.getVoices()
+  ttsEnabled: integer("tts_enabled", { mode: "boolean" }).notNull().default(false),
+  ttsVoice: text("tts_voice"), // Voice name
   ttsPitch: integer("tts_pitch").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
   ttsRate: integer("tts_rate").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
   ttsVolume: integer("tts_volume").notNull().default(10), // 0-10 (0.0-1.0), divide by 10
-  
-  // Voice AI Personality Settings (for Groq rephrasing + Puter.js TTS)
-  voiceAiPersonality: text("voice_ai_personality").notNull().default("Neutral"), // Neutral, Quirky, Funny, Sarcastic, Professional
-  voiceAiPitch: integer("voice_ai_pitch").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
-  voiceAiSpeed: integer("voice_ai_speed").notNull().default(10), // 5-20 (0.5-2.0), divide by 10
-  
+
+  // Voice AI Personality Settings
+  voiceAiPersonality: text("voice_ai_personality").notNull().default("Neutral"), // Neutral, Quirky, Funny, etc.
+  voiceAiPitch: integer("voice_ai_pitch").notNull().default(10), // 5-20
+  voiceAiSpeed: integer("voice_ai_speed").notNull().default(10), // 5-20
+
   // Topic Filters
-  topicAllowlist: jsonb("topic_allowlist").$type<string[]>().default(sql`'["gaming", "anime", "chatting"]'::jsonb`),
-  topicBlocklist: jsonb("topic_blocklist").$type<string[]>().default(sql`'["politics", "religion"]'::jsonb`),
-  useDatabasePersonalization: boolean("use_database_personalization").notNull().default(true),
-  streamerVoiceOnlyMode: boolean("streamer_voice_only_mode").notNull().default(false),
-  
+  topicAllowlist: text("topic_allowlist", { mode: "json" }).$type<string[]>().default(sql`'["gaming","anime","chatting"]'`),
+  topicBlocklist: text("topic_blocklist", { mode: "json" }).$type<string[]>().default(sql`'["politics","religion"]'`),
+  useDatabasePersonalization: integer("use_database_personalization", { mode: "boolean" }).notNull().default(true),
+  streamerVoiceOnlyMode: integer("streamer_voice_only_mode", { mode: "boolean" }).notNull().default(false),
+
   // DachiStream Settings
-  dachiastreamSelectionStrategy: text("dachiastream_selection_strategy").notNull().default("most_active"), // most_active, random, new_chatter
-  dachiastreamPaused: boolean("dachiastream_paused").notNull().default(false),
-  dachiastreamAutoSendToChat: boolean("dachiastream_auto_send_to_chat").notNull().default(false),
+  dachiastreamSelectionStrategy: text("dachiastream_selection_strategy").notNull().default("most_active"),
+  dachiastreamPaused: integer("dachiastream_paused", { mode: "boolean" }).notNull().default(false),
+  dachiastreamAutoSendToChat: integer("dachiastream_auto_send_to_chat", { mode: "boolean" }).notNull().default(false),
   dachiastreamCycleInterval: integer("dachiastream_cycle_interval").notNull().default(15), // seconds between cycles (5-60)
-  
+
   // Dashboard Settings
-  streamSessionStarted: timestamp("stream_session_started"), // Track when current stream started
-  dashboardShowTotalMessages: boolean("dashboard_show_total_messages").notNull().default(true),
-  dashboardShowAiAnalyzed: boolean("dashboard_show_ai_analyzed").notNull().default(true),
-  dashboardShowActiveUsers: boolean("dashboard_show_active_users").notNull().default(true),
-  dashboardShowModActions: boolean("dashboard_show_mod_actions").notNull().default(true),
-  
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  streamSessionStarted: integer("stream_session_started", { mode: "timestamp" }),
+  dashboardShowTotalMessages: integer("dashboard_show_total_messages", { mode: "boolean" }).notNull().default(true),
+  dashboardShowAiAnalyzed: integer("dashboard_show_ai_analyzed", { mode: "boolean" }).notNull().default(true),
+  dashboardShowActiveUsers: integer("dashboard_show_active_users", { mode: "boolean" }).notNull().default(true),
+  dashboardShowModActions: integer("dashboard_show_mod_actions", { mode: "boolean" }).notNull().default(true),
+
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
-// Follower Events Table - Track follows, unfollows, subs, bits
-export const followerEvents = pgTable("follower_events", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+/* ================================
+   Follower Events
+================================ */
+export const followerEvents = sqliteTable("follower_events", {
+  id: text("id").primaryKey().$defaultFn(() => uuid()),
   userId: text("user_id").notNull(), // Twitch user ID
   username: text("username").notNull(),
-  eventType: text("event_type").notNull(), // follow, unfollow, subscribe, resubscribe, gift_sub, cheer
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  
+  eventType: text("event_type").notNull(), // follow, unfollow, subscribe, etc.
+  timestamp: integer("timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+
   // Event-specific data
   tier: text("tier"), // For subs: "1000", "2000", "3000"
   months: integer("months"), // For resubs: cumulative months
   bits: integer("bits"), // For cheers: amount of bits
   giftedBy: text("gifted_by"), // For gift subs: who gifted
   message: text("message"), // Optional message with event
-  
+
   // Follower-specific tracking
-  followedAt: timestamp("followed_at"), // When they first followed (for follow events)
-  isFollower: boolean("is_follower"), // Current follower status at time of event
+  followedAt: integer("followed_at", { mode: "timestamp" }), // When first followed
+  isFollower: integer("is_follower", { mode: "boolean" }), // Current follower status at time of event
 });
 
-// Relations
+/* ================================
+   Relations
+================================ */
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   analysis: one(aiAnalysis, {
     fields: [chatMessages.id],
@@ -250,7 +285,9 @@ export const aiAnalysisRelations = relations(aiAnalysis, ({ one }) => ({
   }),
 }));
 
-// Insert Schemas
+/* ================================
+   Insert Schemas
+================================ */
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   id: true,
   firstSeen: true,
@@ -308,7 +345,9 @@ export const insertFollowerEventSchema = createInsertSchema(followerEvents).omit
   timestamp: true,
 });
 
-// Types
+/* ================================
+   Types
+================================ */
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
@@ -342,11 +381,8 @@ export type InsertModerationAction = z.infer<typeof insertModerationActionSchema
 export type FollowerEvent = typeof followerEvents.$inferSelect;
 export type InsertFollowerEvent = z.infer<typeof insertFollowerEventSchema>;
 
-// Extended types for frontend
-export type ChatMessageWithAnalysis = ChatMessage & {
-  analysis?: AiAnalysis;
-};
-
-export type UserProfileWithInsight = UserProfile & {
-  insight?: UserInsight;
-};
+/* ================================
+   Extended types for frontend
+================================ */
+export type ChatMessageWithAnalysis = ChatMessage & { analysis?: AiAnalysis };
+export type UserProfileWithInsight = UserProfile & { insight?: UserInsight };

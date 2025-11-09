@@ -1,14 +1,13 @@
+﻿import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
-}
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error('DATABASE_URL is missing (e.g., file:./app.db)');
 
 export default defineConfig({
-  out: "./migrations",
-  schema: "./shared/schema.ts",
-  dialect: "postgresql",
-  dbCredentials: {
-    url: process.env.DATABASE_URL,
-  },
+  out: "./drizzle",
+  schema: "./shared/schema.ts",   // keep this (you actually have this file)
+  dialect: "sqlite",
+  dbCredentials: { url },
 });
+

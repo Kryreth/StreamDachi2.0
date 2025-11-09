@@ -1,0 +1,17 @@
+; NSIS add-on: include TwitchMindShell.exe and set shortcuts to it.
+; Put your built shell EXE at TwitchMind\shell\dist\TwitchMindShell-Setup.exe (or portable exe)
+; Example snippet to add to your main installer after you build the Electron shell app:
+
+; --- BEGIN SHELL SNIPPET ---
+; Install the shell app (portable exe variant recommended)
+CreateDirectory "$INSTDIR\shell"
+SetOutPath "$INSTDIR\shell"
+File /r "shell\dist\*.*"
+
+; Shortcuts point to the shell instead of run.cmd
+; (keep run.cmd for server start or manual troubleshooting)
+Delete "$DESKTOP\TwitchMind.lnk"
+CreateShortCut "$DESKTOP\TwitchMind.lnk" "$INSTDIR\shell\TwitchMindShell.exe" "" "$INSTDIR\app.ico" 0
+
+; Optionally also create Start Menu shortcut similarly
+; --- END SHELL SNIPPET ---

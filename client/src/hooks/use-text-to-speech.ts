@@ -113,14 +113,14 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       };
 
       utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+      globalThis.speechSynthesis.speak(utterance);
     },
     [isSupported, voices, settings]
   );
 
   const stop = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.cancel();
+    globalThis.speechSynthesis.cancel();
     setIsSpeaking(false);
   }, [isSupported]);
 
@@ -132,7 +132,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   useEffect(() => {
     return () => {
       if (isSupported) {
-        window.speechSynthesis.cancel();
+        globalThis.speechSynthesis.cancel();
       }
     };
   }, [isSupported]);

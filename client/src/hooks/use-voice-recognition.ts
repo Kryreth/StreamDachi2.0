@@ -50,8 +50,8 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
   const streamRef = useRef<MediaStream | null>(null);
 
   // Check if browser supports MediaRecorder
-  const isSupported = typeof window !== "undefined" && 
-    "MediaRecorder" in window && 
+  const isSupported = typeof globalThis.window !== "undefined" && 
+    "MediaRecorder" in globalThis.window && 
     typeof navigator !== "undefined" &&
     !!navigator.mediaDevices && 
     typeof navigator.mediaDevices.getUserMedia === "function";
@@ -142,7 +142,7 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
       console.log("Silence detected after speech - processing audio chunk");
       
       // Stop current recording and process
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
       }
     }
@@ -244,13 +244,13 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
     }
     
     // Stop media recorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (mediaRecorderRef.current?.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
     
     // Stop audio stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      for (const track of streamRef.current.getTracks()) { track.stop(); }
       streamRef.current = null;
     }
     
@@ -291,12 +291,12 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
         clearTimeout(silenceDetectorRef.current);
       }
       
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      if (mediaRecorderRef.current?.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
       
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        for (const track of streamRef.current.getTracks()) { track.stop(); }
       }
       
       if (audioContextRef.current) {

@@ -50,7 +50,7 @@ export function useVoiceRecognition(options: VoiceRecognitionOptions = {}): UseV
   const streamRef = useRef<MediaStream | null>(null);
 
   // Check if browser supports MediaRecorder
-  const isSupported = typeof globalThis.window !== "undefined" && 
+  const isSupported = globalThis.window !== "undefined" && 
     "MediaRecorder" in globalThis.window && 
     typeof navigator !== "undefined" &&
     !!navigator.mediaDevices && 

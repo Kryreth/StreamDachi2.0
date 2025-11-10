@@ -1,3 +1,4 @@
+```tsx
 "use client"
 
 import * as React from "react"
@@ -46,8 +47,10 @@ const ChartContainer = React.forwardRef<
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replaceAll(":", "")}`
 
+  const memoizedConfig = React.useMemo(() => ({ config }), [config])
+
   return (
-    <ChartContext.Provider value={{ config }}>
+    <ChartContext.Provider value={memoizedConfig}>
       <div
         data-chart={chartId}
         ref={ref}
@@ -183,7 +186,7 @@ const ChartTooltipContent = React.forwardRef<
           className
         )}
       >
-        {!nestLabel ? tooltipLabel : null}
+        {nestLabel ? null : tooltipLabel}
         <div className="grid gap-1.5">
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
@@ -316,7 +319,6 @@ const ChartLegendContent = React.forwardRef<
 )
 ChartLegendContent.displayName = "ChartLegend"
 
-// Helper to extract item config from a payload.
 function getPayloadConfigFromPayload(
   config: ChartConfig,
   payload: unknown,
@@ -350,9 +352,7 @@ function getPayloadConfigFromPayload(
     ] as string
   }
 
-  return configLabelKey in config
-    ? config[configLabelKey]
-    : config[key as keyof typeof config]
+  return config[configLabelKey] ?? config[key]
 }
 
 export {
@@ -363,3 +363,4 @@ export {
   ChartLegendContent,
   ChartStyle,
 }
+```

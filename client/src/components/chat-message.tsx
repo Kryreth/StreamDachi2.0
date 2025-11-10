@@ -1,63 +1,39 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import type { ChatMessageWithAnalysis } from "@shared/schema";
+import type { ChatMessageWithAnalysis } from "@/shared/schema";
 
 interface ChatMessageProps {
-  message: ChatMessageWithAnalysis;
-  showSentiment?: boolean; // Show sentiment badge (for Analytics only)
+  readonly message: ChatMessageWithAnalysis;
+  readonly showSentiment?: boolean; // show sentiment badge (for Analytics only)
 }
 
 export function ChatMessage({ message, showSentiment = false }: ChatMessageProps) {
   const getSentimentColor = (sentiment?: string) => {
     if (!sentiment) return "";
     switch (sentiment) {
-      case "positive":
-        return "border-l-chart-2";
-      case "negative":
-        return "border-l-destructive";
-      default:
-        return "border-l-chart-3";
+      case "positive": return "text-green-400";
+      case "negative": return "text-red-400";
+      default: return "text-gray-400";
     }
   };
 
-  const getUserInitials = (username: string) => {
-    return username.slice(0, 2).toUpperCase();
-  };
-
   return (
-    <div
-      className={`flex items-start gap-3 px-4 py-2 hover-elevate ${
-        showSentiment && message.analysis ? `border-l-2 ${getSentimentColor(message.analysis.sentiment)}` : ""
-      }`}
-      data-testid={`chat-message-${message.id}`}
-    >
-      <Avatar className="h-8 w-8">
-        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-          {getUserInitials(message.username)}
-        </AvatarFallback>
+    <div className="flex items-start space-x-3 p-2">
+      <Avatar>
+        <AvatarFallback>{message.username[0]}</AvatarFallback>
       </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 flex-wrap">
-          <span
-            className="font-mono text-sm font-semibold"
-            style={{ color: message.userColor || "hsl(var(--primary))" }}
-            data-testid={`message-username-${message.id}`}
-          >
-            {message.username}
-          </span>
-          <span className="text-xs font-mono text-muted-foreground" data-testid={`message-timestamp-${message.id}`}>
-            {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
-          </span>
-          {showSentiment && message.analysis && (
-            <Badge variant="secondary" className="text-xs" data-testid={`message-sentiment-${message.id}`}>
-              {message.analysis.sentiment}
-            </Badge>
-          )}
+      <div className="flex-1">
+        <div className="text-sm font-medium text-gray-200">{message.username}</div>
+        <div className="text-gray-300">{message.message}</div>
+        <div className="text-xs text-gray-500">
+          {formatDistanceToNow(new Date(message.timestamp))} ago
         </div>
-        <p className="text-sm text-foreground mt-1 break-words" data-testid={`message-text-${message.id}`}>
-          {message.message}
-        </p>
+        {showSentiment && message.sentiment && (
+          <Badge className={getSentimentColor(message.sentiment)}>
+            {message.sentiment}
+          </Badge>
+        )}
       </div>
     </div>
   );

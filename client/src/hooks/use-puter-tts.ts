@@ -1,188 +1,114 @@
-import { useState, useCallback, useRef } from "react";
+--- a/client/src/hooks/use-puter-tts.ts
++++ b/client/src/hooks/use-puter-tts.ts
+@@
+-import { useCallback, useState } from "react";
++import { useCallback, useEffect, useRef, useState } from "react";
 
-declare global {
-  interface Window {
-    puter?: {
-      ai: {
-        txt2speech: (
-          text: string,
-          options?: {
-            voice?: string;
-            engine?: "standard" | "neural" | "generative";
-            language?: string;
-          }
-        ) => Promise<{
-          play: () => void;
-          pause: () => void;
-          stop: () => void;
-        }>;
-      };
-    };
-  }
-}
++// Allow window.puter without any `as any` assertions
++declare global {
++  interface Window {
++    puter?: {
++      ai?: {
++        txt2speech?: (
++          text: string,
++          opts: { voice?: string; engine?: string; language?: string }
++        ) => Promise<any>;
++      };
++    };
++  }
++}
 
-// AWS Polly voices available through Puter.js
-export interface PuterVoice {
-  id: string;
-  name: string;
-  gender: "Male" | "Female";
-  language: string;
-  region: string;
-}
+ export interface PuterTTSSettings {
+   voice?: string;
+   engine?: string;
+   language?: string;
+ }
 
-export const PUTER_VOICES: PuterVoice[] = [
-  // US English - Male
-  { id: "Matthew", name: "Matthew", gender: "Male", language: "en-US", region: "US" },
-  { id: "Joey", name: "Joey", gender: "Male", language: "en-US", region: "US" },
-  { id: "Justin", name: "Justin", gender: "Male", language: "en-US", region: "US" },
-  { id: "Kevin", name: "Kevin", gender: "Male", language: "en-US", region: "US" },
-  { id: "Stephen", name: "Stephen", gender: "Male", language: "en-US", region: "US" },
-  
-  // US English - Female
-  { id: "Joanna", name: "Joanna", gender: "Female", language: "en-US", region: "US" },
-  { id: "Kendra", name: "Kendra", gender: "Female", language: "en-US", region: "US" },
-  { id: "Kimberly", name: "Kimberly", gender: "Female", language: "en-US", region: "US" },
-  { id: "Salli", name: "Salli", gender: "Female", language: "en-US", region: "US" },
-  { id: "Ivy", name: "Ivy", gender: "Female", language: "en-US", region: "US" },
-  { id: "Ruth", name: "Ruth", gender: "Female", language: "en-US", region: "US" },
-  
-  // British English - Male
-  { id: "Brian", name: "Brian", gender: "Male", language: "en-GB", region: "UK" },
-  
-  // British English - Female
-  { id: "Emma", name: "Emma", gender: "Female", language: "en-GB", region: "UK" },
-  { id: "Amy", name: "Amy", gender: "Female", language: "en-GB", region: "UK" },
-  
-  // Australian English - Male
-  { id: "Russell", name: "Russell", gender: "Male", language: "en-AU", region: "Australia" },
-  
-  // Australian English - Female
-  { id: "Nicole", name: "Nicole", gender: "Female", language: "en-AU", region: "Australia" },
-  
-  // Indian English - Female
-  { id: "Aditi", name: "Aditi", gender: "Female", language: "en-IN", region: "India" },
-  { id: "Raveena", name: "Raveena", gender: "Female", language: "en-IN", region: "India" },
-];
+ export default function usePuterTTS() {
+-  // (other state as-is)
++  const [isSupported, setIsSupported] = useState(false);
++  const [isSpeaking, setIsSpeaking] = useState(false);
++  const [settings, setSettings] = useState<PuterTTSSettings>({
++    voice: undefined,
++    engine: undefined,
++    language: "en",
++  });
++  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-export interface PuterTTSSettings {
-  enabled: boolean;
-  voice: string;
-  engine: "standard" | "neural" | "generative";
-  language: string;
-  volume: number; // 0-1
-}
+-  // Initialize support check on first render
+-  useState(() => {
+-    setTimeout(checkSupport, 100);
+-  });
++  // Initialize support check (useEffect instead of useState side-effect)
++  const checkSupport = useCallback(() => {
++    setIsSupported(Boolean(window?.puter?.ai?.txt2speech));
++  }, []);
++  useEffect(() => {
++    const id = window.setTimeout(checkSupport, 100);
++    return () => window.clearTimeout(id);
++  }, [checkSupport]);
 
-export function usePuterTTS() {
-  const [isSupported, setIsSupported] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [settings, setSettings] = useState<PuterTTSSettings>({
-    enabled: true,
-    voice: "Joanna",
-    engine: "neural",
-    language: "en-US",
-    volume: 1.0,
-  });
-  
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+   // Update settings
+   const updateSettings = useCallback((newSettings: Partial<PuterTTSSettings>) => {
+     setSettings(prev => ({ ...prev, ...newSettings }));
+   }, []);
 
-  // Check if Puter.js is loaded
-  const checkSupport = useCallback(() => {
-    const supported = typeof window.puter?.ai?.txt2speech === "function";
-    setIsSupported(supported);
-    return supported;
-  }, []);
+   // Speak
+   const speak = useCallback(async (text: string) => {
+-    const audioStream = await (window as any).puter.ai.txt2speech(trimmedText, {
+-      voice: settings.voice,
+-      engine: settings.engine,
+-      language: settings.language,
+-    });
++    if (!isSupported) return;
++    const trimmedText = text.slice(0, 3000);
++    setIsSpeaking(true);
++    try {
++      const fn = window?.puter?.ai?.txt2speech;
++      if (!fn) throw new Error("puter.ai.txt2speech unavailable");
++      const audioResult: any = await fn(trimmedText, {
++        voice: settings.voice,
++        engine: settings.engine,
++        language: settings.language,
++      });
++      const audio = (audioRef.current ||= new Audio());
++      if (typeof audioResult === "string") {
++        audio.src = audioResult;
++      } else if (audioResult?.url) {
++        audio.src = String(audioResult.url);
++      } else if (typeof audioResult?.arrayBuffer === "function") {
++        const buf = await audioResult.arrayBuffer();
++        audio.src = URL.createObjectURL(new Blob([buf]));
++      } else {
++        setIsSpeaking(false);
++        return;
++      }
++      await audio.play();
++      audio.onended = () => setIsSpeaking(false);
++      audio.onerror = () => setIsSpeaking(false);
++    } catch (e) {
++      setIsSpeaking(false);
++      console.error("Puter TTS error:", e);
++    }
+   }, [isSupported, settings.voice, settings.engine, settings.language]);
 
-  // Speak text using Puter TTS
-  const speak = useCallback(
-    async (text: string) => {
-      if (!settings.enabled) {
-        console.log("Puter TTS is disabled");
-        return;
-      }
++  const stop = useCallback(() => {
++    if (audioRef.current) {
++      try { audioRef.current.pause(); audioRef.current.src = ""; } catch {}
++    }
++    setIsSpeaking(false);
++  }, []);
++
+-  // Delayed check to ensure Puter script has loaded
+-  setTimeout(checkSupport, 100);
++  // (removed duplicate delayed check)
 
-      // Check support each time in case script loaded after hook initialization
-      if (!checkSupport()) {
-        console.error("Puter.js TTS not available");
-        return;
-      }
-
-      // Stop any currently playing audio
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current = null;
-      }
-
-      // Limit text to 3000 characters (Puter.js limit)
-      const trimmedText = text.substring(0, 3000);
-
-      try {
-        setIsSpeaking(true);
-        console.log(`[Puter TTS] Generating ${settings.engine} audio for:`, trimmedText);
-        
-        const audioStream = await window.puter!.ai.txt2speech(trimmedText, {
-          voice: settings.voice,
-          engine: settings.engine,
-          language: settings.language,
-        });
-
-        // Create audio element for better control
-        const audio = new Audio();
-        // @ts-ignore - Puter returns a playable stream
-        audio.src = audioStream;
-        audio.volume = settings.volume;
-        
-        currentAudioRef.current = audio;
-
-        audio.onended = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-          console.log("[Puter TTS] Audio playback ended");
-        };
-
-        audio.onerror = (error) => {
-          console.error("[Puter TTS] Audio playback error:", error);
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
-
-        await audio.play();
-        console.log(`[Puter TTS] Playing ${settings.engine} audio`);
-      } catch (error) {
-        console.error("[Puter TTS] Error:", error);
-        setIsSpeaking(false);
-      }
-    },
-    [settings, checkSupport]
-  );
-
-  // Stop speaking
-  const stop = useCallback(() => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-      setIsSpeaking(false);
-      console.log("[Puter TTS] Stopped");
-    }
-  }, []);
-
-  // Update settings
-  const updateSettings = useCallback((newSettings: Partial<PuterTTSSettings>) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
-  }, []);
-
-  // Initialize support check on first render
-  useState(() => {
-    // Delay check to ensure Puter script has loaded
-    setTimeout(checkSupport, 100);
-  });
-
-  return {
-    isSupported,
-    isSpeaking,
-    settings,
-    speak,
-    stop,
-    updateSettings,
-    voices: PUTER_VOICES,
-  };
-}
+   return {
+     isSupported,
+     isSpeaking,
+     settings,
+     speak,
++    stop,
+     updateSettings,
+   };
+ }

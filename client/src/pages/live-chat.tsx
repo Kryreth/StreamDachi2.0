@@ -1,3 +1,4 @@
+```tsx
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ interface AuthenticatedUser {
 export default function LiveChat() {
   const { toast } = useToast();
 
-  const { data: status, isLoading: statusLoading } = useQuery<TwitchStatus>({
+  const { data: status } = useQuery<TwitchStatus>({
     queryKey: ["/api/twitch/status"],
     refetchInterval: 3000,
   });
@@ -69,20 +70,30 @@ export default function LiveChat() {
 
   const isConnected = status?.connected ?? false;
   const channelName = status?.channel ?? null;
+  const isAuthenticated = !!authenticatedUser;
 
   return (
     <div className="h-screen flex flex-col p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground" data-testid="page-title-live-chat">Live Chat</h1>
+            <h1
+              className="text-2xl font-bold text-foreground"
+              data-testid="page-title-live-chat"
+            >
+              Live Chat
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Native Twitch chat with full moderation abilities
             </p>
           </div>
           <div className="flex items-center gap-3">
             {isConnected && channelName && (
-              <Badge variant="default" className="gap-2" data-testid="badge-connected">
+              <Badge
+                variant="default"
+                className="gap-2"
+                data-testid="badge-connected"
+              >
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
                 Connected to {channelName}
               </Badge>
@@ -90,11 +101,13 @@ export default function LiveChat() {
             {!isConnected && (
               <Button
                 onClick={() => connectMutation.mutate()}
-                disabled={connectMutation.isPending || !authenticatedUser}
+                disabled={connectMutation.isPending || !isAuthenticated}
                 data-testid="button-connect"
               >
                 <SiTwitch className="mr-2 h-4 w-4" />
-                {connectMutation.isPending ? "Connecting..." : "Connect to Twitch"}
+                {connectMutation.isPending
+                  ? "Connecting..."
+                  : "Connect to Twitch"}
               </Button>
             )}
           </div>
@@ -120,7 +133,7 @@ export default function LiveChat() {
                 className="w-full h-full rounded-b-lg border-0"
                 data-testid="iframe-twitch-chat"
                 title={`${channelName} Twitch Chat`}
-                style={{ minHeight: '500px' }}
+                style={{ minHeight: "500px" }}
               />
             </CardContent>
           </Card>
@@ -129,16 +142,14 @@ export default function LiveChat() {
             <CardContent className="text-center py-16">
               <SiTwitch className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-xl font-semibold mb-2">
-                {!authenticatedUser
-                  ? "Login Required"
-                  : "Not Connected"}
+                {isAuthenticated ? "Not Connected" : "Login Required"}
               </h2>
               <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                {!authenticatedUser
-                  ? "Please log in with Twitch to connect to chat"
-                  : "Click the Connect button to start monitoring your Twitch chat"}
+                {isAuthenticated
+                  ? "Click the Connect button to start monitoring your Twitch chat"
+                  : "Please log in with Twitch to connect to chat"}
               </p>
-              {authenticatedUser && !isConnected && (
+              {isAuthenticated && !isConnected && (
                 <Button
                   onClick={() => connectMutation.mutate()}
                   disabled={connectMutation.isPending}
@@ -146,7 +157,9 @@ export default function LiveChat() {
                   data-testid="button-connect-centered"
                 >
                   <SiTwitch className="mr-2 h-5 w-5" />
-                  {connectMutation.isPending ? "Connecting..." : "Connect to Twitch"}
+                  {connectMutation.isPending
+                    ? "Connecting..."
+                    : "Connect to Twitch"}
                 </Button>
               )}
             </CardContent>

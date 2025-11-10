@@ -26,7 +26,7 @@ interface UseTextToSpeechReturn {
 
 export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isSupported] = useState(
-    typeof globalThis.window !== "undefined" && "speechSynthesis" in globalThis
+    globalThis.window !== "undefined" && "speechSynthesis" in globalThis
   );
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<TTSVoice[]>([]);

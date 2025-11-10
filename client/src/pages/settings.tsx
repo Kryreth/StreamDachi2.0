@@ -168,7 +168,7 @@ export default function SettingsPage() {
               <>
                 <div className="flex flex-col gap-4">
                   <Button
-                    onClick={() => window.location.href = "/api/auth/twitch"}
+                    onClick={() => globalThis.window.location.href = "/api/auth/twitch"}
                     data-testid="button-login-twitch"
                     className="w-full"
                   >

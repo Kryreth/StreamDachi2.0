@@ -1,3 +1,4 @@
+bash
 #!/bin/bash
 
 # Colors for terminal
@@ -6,21 +7,22 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Define constants
 SEPARATOR='  ==================================================='
 
 clear
 
 echo ""
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo -e "    ${GREEN}STREAMDACHI - LOCAL MODE${NC}"
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo ""
 echo "  Database: SQLite (app.db)"
 echo "  Server: http://localhost:5000"
 echo ""
 echo "  Starting in 2 seconds..."
 echo "  Press Ctrl+C to cancel"
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo ""
 
 sleep 2
@@ -43,31 +45,31 @@ fi
 echo ""
 echo -e "  ${BLUE}[2/2]${NC} Starting StreamDachi..."
 echo ""
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo -e "    ${GREEN}SERVER RUNNING${NC}"
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo ""
 echo "  Open your browser to: http://localhost:5000"
 echo ""
 echo "  Press Ctrl+C to stop the server"
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo ""
 
 npx tsx server/index.ts
 
 if [[ $? -ne 0 ]]; then
     echo ""
-    echo "  ==================================================="
+    echo "$SEPARATOR"
     echo -e "    ${RED}SERVER STOPPED WITH ERROR${NC}" >&2
-    echo "  ==================================================="
+    echo "$SEPARATOR"
     echo ""
     read -p "  Press Enter to exit..."
     exit 1
 fi
 
 echo ""
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo -e "    ${GREEN}SERVER STOPPED NORMALLY${NC}"
-echo "  ==================================================="
+echo "$SEPARATOR"
 echo ""
 read -p "  Press Enter to exit..."

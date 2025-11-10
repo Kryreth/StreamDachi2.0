@@ -194,11 +194,11 @@ export default function VIPManagement() {
     return `${hoursLeft}h cooldown`;
   };
 
-  const settingsArray = Array.isArray(settings) ? settings : [];
-  const autoShoutoutsEnabled = settingsArray[0]?.autoShoutoutsEnabled;
-  const cooldownHours = settingsArray[0]?.dachipoolShoutoutCooldownHours || 24;
-  const browserSourceEnabled = settingsArray[0]?.browserSourceEnabled || false;
-  const browserSourceToken = settingsArray[0]?.browserSourceToken;
+  const settingsArray = Array.isArray(settings) settings : [];
+  const autoShoutoutsEnabled = settingsArray[0].autoShoutoutsEnabled;
+  const cooldownHours = settingsArray[0].dachipoolShoutoutCooldownHours || 24;
+  const browserSourceEnabled = settingsArray[0].browserSourceEnabled || false;
+  const browserSourceToken = settingsArray[0].browserSourceToken;
 
   const generateBrowserSourceMutation = useMutation({
     mutationFn: async () => {
@@ -229,9 +229,9 @@ export default function VIPManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
-        title: browserSourceEnabled ? "Browser Source Disabled" : "Browser Source Enabled",
+        title: browserSourceEnabled "Browser Source Disabled" : "Browser Source Enabled",
         description: browserSourceEnabled 
-          ? "Shoutouts will no longer appear in OBS." 
+          "Shoutouts will no longer appear in OBS." 
           : "Shoutouts will now appear in OBS when the browser source is active.",
       });
     },
@@ -284,7 +284,7 @@ export default function VIPManagement() {
 
   const updateCooldownMutation = useMutation({
     mutationFn: async (hours: number) => {
-      const settingId = settingsArray[0]?.id;
+      const settingId = settingsArray[0].id;
       if (!settingId) {
         throw new Error("Settings not found");
       }
@@ -457,14 +457,14 @@ export default function VIPManagement() {
           </CardTitle>
           <CardDescription>
             {autoShoutoutsEnabled 
-              ? `Shoutouts will be sent automatically with a ${cooldownHours}h cooldown`
+              `Shoutouts will be sent automatically with a ${cooldownHours}h cooldown`
               : "Enable auto shoutouts in Settings to activate automatic greetings"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading VIPs...</div>
-          ) : vips.length === 0 ? (
+          ) : vips.length === 0 (
             <div className="text-center py-8 text-muted-foreground" data-testid="text-no-vips">
               No VIP users yet. Add your first VIP above!
             </div>
@@ -478,7 +478,7 @@ export default function VIPManagement() {
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <Avatar className="h-12 w-12 border-2 border-primary">
-                      {vip.profileImageUrl ? (
+                      {vip.profileImageUrl (
                         <AvatarImage src={vip.profileImageUrl} alt={vip.username} />
                       ) : null}
                       <AvatarFallback className="bg-primary text-primary-foreground">
@@ -571,7 +571,7 @@ export default function VIPManagement() {
               <p className="font-medium text-foreground mb-1">Browser Source Status</p>
               <p className="text-sm text-muted-foreground">
                 {browserSourceEnabled 
-                  ? "Browser source is active and will display shoutouts in real-time" 
+                  "Browser source is active and will display shoutouts in real-time" 
                   : "Browser source is disabled"}
               </p>
             </div>
@@ -656,9 +656,9 @@ export default function VIPManagement() {
             <DialogTitle>Test Shoutout: {testShoutoutUser?.username}</DialogTitle>
             <DialogDescription>
               {testShoutoutMutation.isPending 
-                ? "Fetching latest clip from Twitch..." 
+                "Fetching latest clip from Twitch..." 
                 : testClip 
-                  ? "Preview of their latest Twitch clip"
+                  "Preview of their latest Twitch clip"
                   : "Loading clip..."}
             </DialogDescription>
           </DialogHeader>

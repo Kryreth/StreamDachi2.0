@@ -1,6 +1,6 @@
 // Reference: javascript_websocket blueprint
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { databaseManager } from "./database-manager";
@@ -213,7 +213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Active Chatters
   app.get("/api/chatters/active", async (req, res) => {
     try {
-      const { getTwitchClient, activeChattersService } = await import("./twitch-client");
+      const { activeChattersService } = await import("./twitch-client");
       const chatters = activeChattersService.getActiveChatters();
       res.json(chatters);
     } catch (error) {
@@ -327,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Moderation Actions
   app.get("/api/moderation-actions", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const limit = req.query.limit ? Number.parseInt(req.query.limit as string) : 100;
       const actions = await storage.getModerationActions(limit);
       res.json(actions);
     } catch (error) {
@@ -1046,7 +1046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Voice AI Response History - for Monitor page
   app.get("/api/voice/responses", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = Number.parseInt(req.query.limit as string) || 50;
       const responses = await storage.getVoiceAiResponses(limit);
       res.json(responses);
     } catch (error) {

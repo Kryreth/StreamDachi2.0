@@ -1,5 +1,5 @@
 import type { IStorage } from "./storage";
-import type { ChatMessage, UserInsight, Settings } from "@shared/schema";
+import type { ChatMessage, Settings } from "@shared/schema";
 
 export interface MessageBuffer {
   messages: ChatMessage[];

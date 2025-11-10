@@ -31,7 +31,7 @@ const Alert = React.forwardRef<
 ))
 Alert.displayName = "Alert"
 
-// Fix 1: Ensure <h5> has accessible content
+// ✅ Fix 1: Ensure <h5> has accessible content
 const AlertTitle = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
@@ -58,26 +58,40 @@ const AlertDescription = React.forwardRef<
 ))
 AlertDescription.displayName = "AlertDescription"
 
-// Fix 2: Replace <span role="link"> with <a href="#"> for accessibility
+// ✅ Fix 2 + Fix 3: Accessible Breadcrumb link and separator
 const BreadcrumbPage = React.forwardRef<
   HTMLAnchorElement,
   React.ComponentPropsWithoutRef<"a">
->(({ className, ...props }, ref) => (
-  <a
-    ref={ref}
-    href="#"
-    aria-disabled="true"
-    aria-current="page"
-    className={cn("font-normal text-foreground", className)}
-    {...props}
-  />
-))
+>(({ className, children, href, ...props }, ref) => {
+  const isDisabled = props["aria-disabled"] === "true" || !href
+  const accessibleHref = !isDisabled && href ? href : undefined
+
+  return (
+    <a
+      ref={ref}
+      href={accessibleHref}
+      role={isDisabled ? "link" : undefined}
+      aria-disabled={isDisabled ? "true" : undefined}
+      aria-current="page"
+      className={cn("font-normal text-foreground", className)}
+      {...props}
+    >
+      {children || <span className="sr-only">Current page</span>}
+    </a>
+  )
+})
 BreadcrumbPage.displayName = "BreadcrumbPage"
 
 const BreadcrumbSeparator = ({ children }: { children?: React.ReactNode }) => (
-  <span role="presentation" className="mx-2 text-muted-foreground">
+  <span aria-hidden="true" className="mx-2 text-muted-foreground">
     {children || "/"}
   </span>
 )
 
-export { Alert, AlertTitle, AlertDescription, BreadcrumbPage, BreadcrumbSeparator }
+export {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+}

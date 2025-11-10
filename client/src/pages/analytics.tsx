@@ -1,3 +1,4 @@
+tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import type { ChatMessage, AiAnalysis } from "@shared/schema";
@@ -171,34 +172,37 @@ export default function Analytics() {
             </div>
           ) : (
             <div className="space-y-3">
-              {analyses.slice(-5).reverse().map((analysis) => (
-                <div
-                  key={analysis.id}
-                  className="flex items-center justify-between p-3 rounded-md bg-card hover-elevate"
-                  data-testid={`analysis-${analysis.id}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant={
-                        analysis.sentiment === "positive"
-                          ? "default"
-                          : analysis.sentiment === "negative"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      data-testid={`badge-sentiment-${analysis.id}`}
-                    >
-                      {analysis.sentiment}
-                    </Badge>
-                    <span className="text-sm font-mono text-muted-foreground">
-                      Score: {analysis.sentimentScore}/5
-                    </span>
+              {analyses.slice(-5).reverse().map((analysis) => {
+                let sentimentVariant: "default" | "destructive" | "secondary" = "secondary";
+                if (analysis.sentiment === "positive") {
+                  sentimentVariant = "default";
+                } else if (analysis.sentiment === "negative") {
+                  sentimentVariant = "destructive";
+                }
+
+                return (
+                  <div
+                    key={analysis.id}
+                    className="flex items-center justify-between p-3 rounded-md bg-card hover-elevate"
+                    data-testid={`analysis-${analysis.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={sentimentVariant}
+                        data-testid={`badge-sentiment-${analysis.id}`}
+                      >
+                        {analysis.sentiment}
+                      </Badge>
+                      <span className="text-sm font-mono text-muted-foreground">
+                        Score: {analysis.sentimentScore}/5
+                      </span>
+                    </div>
+                    {analysis.toxicity && (
+                      <Badge variant="destructive" data-testid={`badge-toxic-${analysis.id}`}>Toxic</Badge>
+                    )}
                   </div>
-                  {analysis.toxicity && (
-                    <Badge variant="destructive" data-testid={`badge-toxic-${analysis.id}`}>Toxic</Badge>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

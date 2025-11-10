@@ -1,3 +1,4 @@
+```ts
 import { storage } from "./storage";
 import { generateAiResponse } from "./groq-service";
 
@@ -27,8 +28,6 @@ Provide ONLY the summary, no additional text.`;
 
           try {
             const summary = await generateAiResponse(prompt, "");
-            
-            const insight = await storage.getUserInsight(user.userId);
             const tags = extractTags(summary);
             
             await storage.saveUserInsight({

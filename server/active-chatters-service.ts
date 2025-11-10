@@ -12,12 +12,14 @@ interface ActiveChatter {
 }
 
 export class ActiveChattersService {
-  private chatters: Map<string, ActiveChatter> = new Map();
+  // ✅ Marked as readonly to satisfy TS/ESLint rules
+  private readonly chatters: Map<string, ActiveChatter> = new Map();
+
   private readonly ACTIVE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 
   addMessage(message: ChatMessage, userProfile?: UserProfile) {
     const existing = this.chatters.get(message.username.toLowerCase());
-    
+
     if (existing) {
       existing.lastMessageTime = new Date();
       existing.messageCount++;
@@ -42,34 +44,39 @@ export class ActiveChattersService {
 
   getActiveChatters(): ActiveChatter[] {
     this.cleanupInactive();
-    return Array.from(this.chatters.values())
-      .sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
+    return Array.from(this.chatters.values()).sort(
+      (a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime()
+    );
   }
 
   searchChatters(query: string): ActiveChatter[] {
     this.cleanupInactive();
     const lowerQuery = query.toLowerCase();
-    
+
     return Array.from(this.chatters.values())
-      .filter(chatter => 
-        chatter.username.toLowerCase().includes(lowerQuery) ||
-        chatter.displayName.toLowerCase().includes(lowerQuery)
+      .filter(
+        (chatter) =>
+          chatter.username.toLowerCase().includes(lowerQuery) ||
+          chatter.displayName.toLowerCase().includes(lowerQuery)
       )
       .sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime())
       .slice(0, 10);
   }
 
+  // ✅ Replaced .forEach with for...of
   private cleanupInactive() {
     const now = Date.now();
     const toRemove: string[] = [];
-    
-    for (const [key, chatter] of Array.from(this.chatters.entries())) {
+
+    for (const [key, chatter] of this.chatters.entries()) {
       if (now - chatter.lastMessageTime.getTime() > this.ACTIVE_WINDOW_MS) {
         toRemove.push(key);
       }
     }
-    
-    toRemove.forEach(key => this.chatters.delete(key));
+
+    for (const key of toRemove) {
+      this.chatters.delete(key);
+    }
   }
 
   clear() {

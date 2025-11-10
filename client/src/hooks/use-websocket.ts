@@ -6,8 +6,8 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
+    const protocol = globalThis.window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = globalThis.window.location.host;
     const wsUrl = `${protocol}//${host}/ws`;
     
     console.log("Connecting to WebSocket:", wsUrl);
@@ -40,7 +40,7 @@ export function useWebSocket() {
           case "auto_shoutout":
             console.log("Auto shoutout:", data);
             // Emit custom browser event for shoutout
-            window.dispatchEvent(new CustomEvent("vip_shoutout", { detail: data }));
+            globalThis.window.dispatchEvent(new CustomEvent("vip_shoutout", { detail: data }));
             break;
         }
       } catch (error) {

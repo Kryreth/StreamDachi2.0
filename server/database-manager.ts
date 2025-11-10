@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { UserProfile, ChatMessage, AiAnalysis } from '@shared/schema';
 
 const DATABASE_ROOT = path.join(process.cwd(), 'DATABASE');
@@ -65,10 +65,8 @@ export class DatabaseManager {
       const profilePath = path.join(userDir, 'profile.json');
       const data = await fs.readFile(profilePath, 'utf-8');
       return JSON.parse(data);
-    } catch (error) {
-      return null;
     }
-  }
+}
 
   async appendUserMessage(userId: string, message: ChatMessage, analysis?: AiAnalysis): Promise<void> {
     const userDir = await this.getUserFolder(userId);

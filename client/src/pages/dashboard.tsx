@@ -41,7 +41,7 @@ function partitionByStart<T extends { timestamp: string }>(
   const today: T[] = [];
   const missed: T[] = [];
   for (const it of items) {
-    (new Date(it.timestamp) >= start today : missed).push(it);
+    (new Date(it.timestamp) >= start ? today : missed).push(it);
   }
   return { today, missed };
 }
@@ -251,7 +251,7 @@ export default function Dashboard() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-base font-semibold">Twitch</CardTitle>
-                {twitchStatus?.connected (
+                {twitchStatus?.connected ? (
                   <Badge variant="secondary" className="gap-2" data-testid="badge-connected">
                     <div className="h-2 w-2 rounded-full bg-chart-2 animate-pulse" />
                     Connected
@@ -266,7 +266,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-sm font-medium">{authenticatedUser.twitchDisplayName}</p>
-              {twitchStatus?.connected (
+              {twitchStatus?.connected ? (
                 <p className="text-xs text-muted-foreground">
                   {twitchStatus.messageCount} messages received
                 </p>
@@ -279,7 +279,7 @@ export default function Dashboard() {
                     className="w-full"
                     data-testid="button-connect-chat"
                   >
-                    {connectMutation.isPending "Connecting..." : "Connect"}
+                    {connectMutation.isPending ? "Connecting..." : "Connect"}
                   </Button>
                 </div>
               )}
@@ -336,7 +336,7 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-semibold">Sentiment Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                {currentAnalyses.length === 0 (
+                {currentAnalyses.length === 0 ? (
                   <div className="flex h-[200px] items-center justify-center">
                     <p className="text-sm text-muted-foreground">No analysis data yet</p>
                   </div>
@@ -376,7 +376,7 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-semibold">Hourly Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                {hourlyData.length === 0 (
+                {hourlyData.length === 0 ? (
                   <div className="flex h-[200px] items-center justify-center">
                     <p className="text-sm text-muted-foreground">No message data yet</p>
                   </div>
@@ -450,7 +450,7 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-semibold">Sentiment Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                {currentAnalyses.length === 0 (
+                {currentAnalyses.length === 0 ? (
                   <div className="flex h-[200px] items-center justify-center">
                     <p className="text-sm text-muted-foreground">No analysis data yet</p>
                   </div>
@@ -490,7 +490,7 @@ export default function Dashboard() {
                 <CardTitle className="text-lg font-semibold">Hourly Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                {hourlyData.length === 0 (
+                {hourlyData.length === 0 ? (
                   <div className="flex h-[200px] items-center justify-center">
                     <p className="text-sm text-muted-foreground">No message data yet</p>
                   </div>
@@ -532,12 +532,12 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Recent Messages</DialogTitle>
             <DialogDescription>
-              Last 20 messages from {activeTab === 'today' 'today' : 'before your stream session'}
+              Last 20 messages from {activeTab === 'today' ? 'today' : 'before your stream session'}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[500px]">
             <div className="space-y-3 pr-4">
-              {recentMessages.length === 0 (
+              {recentMessages.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No messages yet</p>
               ) : (
                 recentMessages.map((msg) => (
@@ -568,7 +568,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>AI Analysis Details</DialogTitle>
             <DialogDescription>
-              Sentiment breakdown and analysis statistics for {activeTab === 'today' 'today' : 'missed messages'}
+              Sentiment breakdown and analysis statistics for {activeTab === 'today' ? 'today' : 'missed messages'}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[500px]">
@@ -610,7 +610,7 @@ export default function Dashboard() {
               <div className="space-y-3">
                 <h3 className="font-semibold text-sm">Category Distribution</h3>
                 <div className="space-y-2">
-                  {Object.entries(categoryDistribution).length === 0 (
+                  {Object.entries(categoryDistribution).length === 0 ? (
                     <p className="text-sm text-muted-foreground">No category data available</p>
                   ) : (
                     Object.entries(categoryDistribution).map(([category, count]) => (
@@ -632,12 +632,12 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Active Users</DialogTitle>
             <DialogDescription>
-              Users sorted by message count for {activeTab === 'today' 'today' : 'missed period'}
+              Users sorted by message count for {activeTab === 'today' ? 'today' : 'missed period'}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[500px]">
             <div className="space-y-2 pr-4">
-              {activeUsers.length === 0 (
+              {activeUsers.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No active users yet</p>
               ) : (
                 <div className="space-y-2">
@@ -656,7 +656,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <Badge variant="secondary" data-testid={`user-count-${index}`}>
-                        {user.count} {user.count === 1 'message' : 'messages'}
+                        {user.count} {user.count === 1 ? 'message' : 'messages'}
                       </Badge>
                     </div>
                   ))}
@@ -672,12 +672,12 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle>Moderation Actions</DialogTitle>
             <DialogDescription>
-              All moderation actions for {activeTab === 'today' 'today' : 'missed period'}
+              All moderation actions for {activeTab === 'today' ? 'today' : 'missed period'}
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[500px]">
             <div className="space-y-3 pr-4">
-              {currentModerationActions.length === 0 (
+              {currentModerationActions.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No moderation actions yet</p>
               ) : (
                 currentModerationActions.map((action) => (

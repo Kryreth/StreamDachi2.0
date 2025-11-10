@@ -9,8 +9,8 @@ export interface TTSVoice {
 interface TTSSettings {
   enabled: boolean;
   voice: string | null; // voice name
-  pitch: number; // 0.5 - 2
-  rate: number; // 0.5 - 2
+  pitch: number; // 1 - 2
+  rate: number; // 1 - 2
   volume: number; // 0 - 1
 }
 
@@ -33,9 +33,9 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const [settings, setSettings] = useState<TTSSettings>({
     enabled: false,
     voice: null,
-    pitch: 1.0,
-    rate: 1.0,
-    volume: 1.0,
+    pitch: 1,
+    rate: 1,
+    volume: 1,
   });
 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);

@@ -14,7 +14,7 @@ interface StatCardProps {
 }
 
 export function StatCard({ title, value, trend, icon: Icon, loading, onClick }: StatCardProps) {
-  const testId = title.toLowerCase().replace(/\s+/g, '-');
+  const testId = title.toLowerCase().replaceAll(/\s+/g, '-');
 
   return (
     <Card 

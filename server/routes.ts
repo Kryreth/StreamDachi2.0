@@ -567,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error starting raid:", error);
       
       // Check if it's a scope error
-      if (error.status === 401 || (error.message && error.message.includes('scope'))) {
+      if (error.status === 401 || ((error as any)?.message?.includes('scope'))) {
         return res.status(403).json({ 
           error: "Missing permissions. Please reconnect your Twitch account in Settings to grant raid permissions.",
           needsReauth: true

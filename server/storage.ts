@@ -25,7 +25,6 @@ import {
   type InsertUserProfile,
   type UserInsight,
   type InsertUserInsight,
-  type UserProfileWithInsight,
   type AuthenticatedUser,
   type InsertAuthenticatedUser,
   type Raid,

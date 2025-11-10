@@ -1,7 +1,6 @@
-
 // Electron shell to display local TwitchMind UI in a contained window.
 const { app, BrowserWindow } = require('electron');
-const path = require('path');
+const path = require('node:path');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -20,5 +19,10 @@ function createWindow() {
   win.loadURL(url);
 }
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+// Use top-level await instead of promise chain
+await app.whenReady();
+createWindow();
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});

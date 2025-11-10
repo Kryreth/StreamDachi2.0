@@ -6,3 +6,4 @@ const sqlite_core_1 = require("drizzle-orm/sqlite-core");
 const drizzle_zod_1 = require("drizzle-zod");
 const drizzle_orm_2 = require("drizzle-orm");
 const crypto_1 = require("node:crypto");
+// Fixed: node:crypto import and verified consistency

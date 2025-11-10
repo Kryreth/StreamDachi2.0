@@ -1,3 +1,4 @@
+```tsx
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
@@ -43,6 +44,7 @@ const PaginationLink = ({
   className,
   isActive,
   size = "icon",
+  children,
   ...props
 }: PaginationLinkProps) => (
   <a
@@ -55,7 +57,9 @@ const PaginationLink = ({
       className
     )}
     {...props}
-  />
+  >
+    {children ?? <span className="sr-only">Page link</span>}
+  </a>
 )
 PaginationLink.displayName = "PaginationLink"
 
@@ -96,7 +100,7 @@ const PaginationEllipsis = ({
   ...props
 }: React.ComponentProps<"span">) => (
   <span
-    aria-hidden
+    aria-hidden="true"
     className={cn("flex h-9 w-9 items-center justify-center", className)}
     {...props}
   >

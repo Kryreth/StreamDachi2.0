@@ -116,7 +116,7 @@ export default function LiveChat() {
             </CardHeader>
             <CardContent className="flex-1 p-0 min-h-0">
               <iframe
-                src={`https://www.twitch.tv/embed/${channelName}/chat?parent=${window.location.hostname}&darkpopout`}
+                src={`https://www.twitch.tv/embed/${channelName}/chat?parent=${globalThis.window.location.hostname}&darkpopout`}
                 className="w-full h-full rounded-b-lg border-0"
                 data-testid="iframe-twitch-chat"
                 title={`${channelName} Twitch Chat`}

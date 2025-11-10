@@ -1,6 +1,5 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/utils"
 
 const alertVariants = cva(
@@ -32,15 +31,18 @@ const Alert = React.forwardRef<
 ))
 Alert.displayName = "Alert"
 
+// Fix 1: Ensure <h5> has accessible content
 const AlertTitle = React.forwardRef<
-  HTMLParagraphElement,
+  HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <h5
     ref={ref}
     className={cn("mb-1 font-medium leading-none tracking-tight", className)}
     {...props}
-  />
+  >
+    {children || <span className="sr-only">Alert title</span>}
+  </h5>
 ))
 AlertTitle.displayName = "AlertTitle"
 
@@ -56,4 +58,26 @@ const AlertDescription = React.forwardRef<
 ))
 AlertDescription.displayName = "AlertDescription"
 
-export { Alert, AlertTitle, AlertDescription }
+// Fix 2: Replace <span role="link"> with <a href="#"> for accessibility
+const BreadcrumbPage = React.forwardRef<
+  HTMLAnchorElement,
+  React.ComponentPropsWithoutRef<"a">
+>(({ className, ...props }, ref) => (
+  <a
+    ref={ref}
+    href="#"
+    aria-disabled="true"
+    aria-current="page"
+    className={cn("font-normal text-foreground", className)}
+    {...props}
+  />
+))
+BreadcrumbPage.displayName = "BreadcrumbPage"
+
+const BreadcrumbSeparator = ({ children }: { children?: React.ReactNode }) => (
+  <span role="presentation" className="mx-2 text-muted-foreground">
+    {children || "/"}
+  </span>
+)
+
+export { Alert, AlertTitle, AlertDescription, BreadcrumbPage, BreadcrumbSeparator }

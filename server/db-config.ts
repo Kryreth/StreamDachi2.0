@@ -8,7 +8,7 @@ import Database from 'better-sqlite3';
 import ws from "ws";
 import * as schemaPg from "@shared/schema";
 import * as schemaSqlite from "@shared/schema-sqlite";
-import path from 'path';
+import path from 'node:path';
 
 // Detect if running on Replit or locally
 export const isReplit = !!process.env.REPLIT || !!process.env.REPL_ID;
@@ -16,9 +16,9 @@ export const isLocal = !isReplit;
 
 console.log(`🌍 Environment: ${isReplit ? 'Replit (Web Mode)' : 'Local Mode'}`);
 
-let db: any;
-let pool: Pool | undefined;
-let sqliteInstance: Database.Database | undefined;
+const db: any;
+const pool: Pool | undefined;
+const sqliteInstance: Database.Database | undefined;
 
 // Web mode: PostgreSQL with Neon
 if (isReplit) {

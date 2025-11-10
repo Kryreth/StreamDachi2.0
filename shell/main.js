@@ -1,6 +1,6 @@
 // Electron shell to display local TwitchMind UI in a contained window.
-const { app, BrowserWindow } = require('electron');
-const path = require('node:path');
+import { app, BrowserWindow } from 'electron';
+import path from 'node:path';
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -19,7 +19,7 @@ function createWindow() {
   win.loadURL(url);
 }
 
-// Use top-level await instead of promise chain
+// Use top-level await for startup
 await app.whenReady();
 createWindow();
 

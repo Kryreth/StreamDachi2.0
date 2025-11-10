@@ -10,4 +10,8 @@ import { randomUUID } from "node:crypto";
 
 // Helper for UUID generation in SQLite
 const uuid = () => randomUUID();
+
+/* ================================
+   User Profiles
+================================ */
 // (rest of file unchanged)

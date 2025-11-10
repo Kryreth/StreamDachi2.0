@@ -29,8 +29,8 @@ export interface DachiStreamState {
 }
 
 export class DachiStreamService {
-  private storage: IStorage;
-  private messageBuffer: MessageBuffer = {
+  private readonly storage: IStorage;
+  private readonly messageBuffer: MessageBuffer = {
     messages: [],
     userMessageCounts: new Map(),
   };
@@ -40,7 +40,7 @@ export class DachiStreamService {
   
   private currentStatus: DachiStreamStatus = "idle";
   private logs: DachiStreamLog[] = [];
-  private maxLogs = 100;
+  private readonly maxLogs = 100;
   private lastCycleTime: Date | null = null;
   private onStatusChange?: (state: DachiStreamState) => void;
   private cycleIntervalSeconds: number = 15;
@@ -61,7 +61,7 @@ export class DachiStreamService {
     // Fetch cycle interval from settings
     const allSettings = await this.storage.getSettings();
     const settings = allSettings[0];
-    if (settings && settings.dachiastreamCycleInterval) {
+    if (settings?.dachiastreamCycleInterval) {
       this.cycleIntervalSeconds = settings.dachiastreamCycleInterval;
     }
     
@@ -221,7 +221,7 @@ export class DachiStreamService {
       const allSettings = await this.storage.getSettings();
       const settings = allSettings[0];
       
-      if (!settings || !settings.dachipoolEnabled) {
+      if (!settings?.dachipoolEnabled) {
         this.addLog("status", "DachiPool is disabled - clearing buffer");
         this.updateStatus("disabled");
         this.clearBuffer();
@@ -277,12 +277,44 @@ export class DachiStreamService {
     }
   }
 
-  private async selectMessage(strategy: SelectionStrategy): Promise<ChatMessage | null> {
-    const { messages } = this.messageBuffer;
-    
-    if (messages.length === 0) {
-      return null;
+  
+    private selectMessageByStrategy(strategy: SelectionStrategy, buffer: MessageBuffer): ChatMessage | null {
+      const { messages, userMessageCounts } = buffer;
+      if (messages.length === 0) return null;
+
+      const last = () => messages.at(-1) || null;
+      const first = () => messages[0] || null;
+
+      const mostActiveUser = () => {
+        let topUser: string | null = null;
+        let topCount = -1;
+        for (const [user, count] of userMessageCounts.entries()) {
+          if (count > topCount) {
+            topCount = count;
+            topUser = user;
+          }
+        }
+        if (!topUser) return last();
+        const idx = messages.findIndex(m => m.username === topUser);
+        return idx >= 0 ? messages[idx] : last();
+      };
+
+      switch (strategy) {
+        case "latest":
+          return last();
+        case "oldest":
+          return first();
+        case "mostActive":
+          return mostActiveUser();
+        default:
+          return last();
+      }
     }
+    
+private async selectMessage(strategy: SelectionStrategy): Promise<ChatMessage | null> {
+  const selected = this.selectMessageByStrategy(strategy, this.messageBuffer);
+  return Promise.resolve(selected);
+}
 
     switch (strategy) {
       case "most_active": {
@@ -308,7 +340,7 @@ export class DachiStreamService {
         }
         
         // Fallback to last message
-        return messages[messages.length - 1];
+        return messages.at(-1);
       }
 
       case "random": {
@@ -346,7 +378,7 @@ export class DachiStreamService {
       }
 
       default:
-        return messages[messages.length - 1];
+        return messages.at(-1);
     }
   }
 

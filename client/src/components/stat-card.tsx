@@ -2,15 +2,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from "@heroicons/react/24/outline";
 
 interface StatCardProps {
-  title: string;
-  value: string | number;
-  trend?: {
-    value: number;
-    isPositive: boolean;
+  readonly title: string;
+  readonly value: string | number;
+  readonly trend?: {
+    readonly value: number;
+    readonly isPositive: boolean;
   };
-  icon?: React.ComponentType<{ className?: string }>;
-  loading?: boolean;
-  onClick?: () => void;
+  readonly icon?: React.ComponentType<{ className?: string }>;
+  readonly loading?: boolean;
+  readonly onClick?: () => void;
 }
 
 export function StatCard({ title, value, trend, icon: Icon, loading, onClick }: StatCardProps) {

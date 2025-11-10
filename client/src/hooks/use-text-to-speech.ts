@@ -26,7 +26,7 @@ interface UseTextToSpeechReturn {
 
 export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isSupported] = useState(
-    typeof globalThis.window !== "undefined" && "speechSynthesis" in window
+    typeof globalThis.window !== "undefined" && "speechSynthesis" in globalThis
   );
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<TTSVoice[]>([]);
@@ -45,7 +45,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     if (!isSupported) return;
 
     const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
+      const availableVoices = globalThis.speechSynthesis.getVoices();
       const voiceList = availableVoices.map((voice) => ({
         voice,
         name: voice.name,
@@ -67,13 +67,13 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     loadVoices();
     
     // Voices might load asynchronously
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (globalThis.speechSynthesis.onvoiceschanged !== undefined) {
+      globalThis.speechSynthesis.onvoiceschanged = loadVoices;
     }
 
     return () => {
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = null;
+      if (globalThis.speechSynthesis.onvoiceschanged !== undefined) {
+        globalThis.speechSynthesis.onvoiceschanged = null;
       }
     };
   }, [isSupported]);
@@ -83,7 +83,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       if (!isSupported || !text.trim()) return;
 
       // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
+      globalThis.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
       

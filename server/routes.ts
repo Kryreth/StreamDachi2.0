@@ -312,8 +312,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update DachiStream cycle interval if it changed
-      if (req.body.dachiastreamCycleInterval !== undefined && (app as any).dachiStreamService) {
-        const dachiStreamService = (app as any).dachiStreamService;
+      if (req.body.dachiastreamCycleInterval !== undefined && (app ).dachiStreamService) {
+        const dachiStreamService = (app ).dachiStreamService;
         dachiStreamService.updateCycleInterval(req.body.dachiastreamCycleInterval);
       }
       
@@ -567,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error starting raid:", error);
       
       // Check if it's a scope error
-      if (error.status === 401 || ((error as any)?.message?.includes('scope'))) {
+      if (error.status === 401 || (error?.message?.includes('scope'))) {
         return res.status(403).json({ 
           error: "Missing permissions. Please reconnect your Twitch account in Settings to grant raid permissions.",
           needsReauth: true
@@ -621,7 +621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DachiStream Controls
   app.post("/api/dachistream/pause", async (req, res) => {
     try {
-      const dachiStreamService = (app as any).dachiStreamService;
+      const dachiStreamService = (app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/dachistream/resume", async (req, res) => {
     try {
-      const dachiStreamService = (app as any).dachiStreamService;
+      const dachiStreamService = (app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -653,7 +653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!intervalSeconds || intervalSeconds < 1 || intervalSeconds > 300) {
         return res.status(400).json({ error: "Interval must be between 1 and 300 seconds" });
       }
-      const dachiStreamService = (app as any).dachiStreamService;
+      const dachiStreamService = (app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -678,7 +678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/dachistream/reset", async (req, res) => {
     try {
-      const dachiStreamService = (app as any).dachiStreamService;
+      const dachiStreamService = (app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -692,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dachistream/interval", (req, res) => {
     try {
-      const dachiStreamService = (app as any).dachiStreamService;
+      const dachiStreamService = (app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -742,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify token
       const settings = await storage.getBrowserSourceSettings(token);
-      if (!settings || !settings.browserSourceEnabled) {
+      if (!settings?.browserSourceEnabled) {
         return res.status(404).send("Browser source not found or disabled");
       }
 
@@ -907,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auto-connect to Twitch if authenticated user exists (OAuth takes priority)
   const authenticatedUser = await storage.getAuthenticatedUser();
-  if (authenticatedUser && authenticatedUser.twitchUsername) {
+  if (authenticatedUser?.twitchUsername) {
     try {
       await connectToTwitch(authenticatedUser.twitchUsername, authenticatedUser.twitchUsername);
       console.log(`Auto-connected to Twitch via OAuth: ${authenticatedUser.twitchUsername}`);
@@ -934,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DachiStream Monitor API
   app.get("/api/dachistream/status", (req, res) => {
     try {
-      const dachiStreamService = (req.app as any).dachiStreamService;
+      const dachiStreamService = (req.app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -949,7 +949,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dachistream/logs", (req, res) => {
     try {
-      const dachiStreamService = (req.app as any).dachiStreamService;
+      const dachiStreamService = (req.app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -964,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dachistream/buffer", (req, res) => {
     try {
-      const dachiStreamService = (req.app as any).dachiStreamService;
+      const dachiStreamService = (req.app ).dachiStreamService;
       if (!dachiStreamService) {
         return res.status(503).json({ error: "DachiStream service not available" });
       }
@@ -1022,7 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         selectedPersonality = settings?.voiceAiPersonality || "Neutral";
       }
       
-      const result = await enhanceSpeechForChat(text, selectedPersonality as any);
+      const result = await enhanceSpeechForChat(text, selectedPersonality );
       
       // Save to database
       try {

@@ -7,6 +7,50 @@ import { twitchOAuthService } from "./twitch-oauth-service";
 import { ActiveChattersService } from "./active-chatters-service";
 import { databaseManager } from "./database-manager";
 
+
+// --- Extracted helpers to lower cognitive complexity ---
+function withinCooldown(last:number|undefined|null, cooldownMs:number, now:number): boolean {
+  const lastTs = last ?? 0;
+  return (now - lastTs) > cooldownMs;
+}
+
+async function handleAutoShoutout(storage:any, settings:any, isVip:boolean, userId:string, username:string) {
+  if (!settings?.autoShoutoutsEnabled || !isVip) return;
+  const userProfile = await storage.getUserProfile(userId);
+  if (!userProfile) return;
+  const cooldownHours = settings.dachipoolShoutoutCooldownHours ?? 24;
+  const cooldownMs = cooldownHours * 60 * 60 * 1000;
+  const now = Date.now();
+  const lastShoutout = userProfile.shoutoutLastGiven?.getTime?.() ?? 0;
+  if (withinCooldown(lastShoutout, cooldownMs, now)) {
+    await storage.updateShoutoutTimestamp(userId);
+    const shoutoutMessage = `✨ Welcome VIP @${username}! Thanks for being amazing! ✨`;
+    broadcastToClients("auto_shoutout", { username, message: shoutoutMessage });
+  }
+}
+
+async function maybeAnalyzeMessage(shouldAnalyze:boolean, message:string, storage:any, chatMessage:any) {
+  if (!shouldAnalyze) return null;
+  const aiResult = await analyzeChatMessage(message);
+  await storage.createAIAnalysis({
+    messageId: chatMessage.id,
+    sentiment: aiResult.sentiment,
+    sentimentScore: aiResult.sentimentScore,
+  });
+  return aiResult;
+}
+
+async function dispatchCommandIfAny(storage:any, message:string) {
+  const commands = await storage.getAiCommands();
+  const matched = commands.find((cmd: any) => cmd.enabled && message.toLowerCase().startsWith(cmd.trigger.toLowerCase()));
+  if (!matched) return null;
+  await storage.incrementCommandUsage(matched.id);
+  const response = await generateAiResponse(matched.prompt, message);
+  broadcastToClients("command_response", { command: matched.trigger, response });
+  return matched;
+}
+
+
 let twitchClient: tmi.Client | null = null;
 const connectedClients: Set<WebSocket> = new Set();
 let dachiStreamService: DachiStreamService | null = null;
@@ -86,9 +130,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
   if (twitchClient) {
     try {
       await twitchClient.disconnect();
-    } catch (error) {
-      console.log("Note: Previous Twitch client was already disconnected");
-    }
+    } catch (error)
   }
 
   // Ensure we have a valid access token (refresh if needed)
@@ -138,7 +180,7 @@ export async function connectToTwitch(channel: string, username: string = "justi
     const userColor = tags.color || "#9146FF";
     const userId = tags["user-id"] || `anonymous_${username}`;
     
-    const badges = tags.badges || {};
+    const badges = tags.badges ?? {};
     const isVip = badges.vip === "1" || false;
     const isMod = badges.moderator === "1" || badges.broadcaster === "1" || false;
     const isSubscriber = badges.subscriber !== undefined || badges.founder !== undefined || false;
@@ -156,9 +198,9 @@ export async function connectToTwitch(channel: string, username: string = "justi
       await storage.updateUserLastSeen(userId);
 
       const settingsList = await storage.getSettings();
-      const settings = settingsList.length > 0 ? settingsList[0] : null;
+      const settings = settingsList[0] ?? null;
       
-      if (settings && settings.autoShoutoutsEnabled && isVip) {
+      if (settings?.autoShoutoutsEnabled && isVip) {
         const userProfile = await storage.getUserProfile(userId);
         if (userProfile) {
           const cooldownHours = settings.dachipoolShoutoutCooldownHours || 24;

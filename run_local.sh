@@ -6,6 +6,8 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+SEPARATOR='  ==================================================='
+
 clear
 
 echo ""
@@ -24,12 +26,12 @@ echo ""
 sleep 2
 
 echo -e "  ${BLUE}[1/2]${NC} Checking dependencies..."
-if [ ! -d "node_modules" ]; then
+if [[ ! -d "node_modules"  ]]; then
     echo "  Installing packages (this may take a minute)..."
     npm install
-    if [ $? -ne 0 ]; then
+    if [[ $? -ne 0 ]]; then
         echo ""
-        echo -e "  ${RED}ERROR: npm install failed!${NC}"
+        echo -e "  ${RED}ERROR: npm install failed!${NC}" >&2
         echo "  Make sure Node.js is installed."
         read -p "  Press Enter to exit..."
         exit 1
@@ -53,10 +55,10 @@ echo ""
 
 npx tsx server/index.ts
 
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     echo ""
     echo "  ==================================================="
-    echo -e "    ${RED}SERVER STOPPED WITH ERROR${NC}"
+    echo -e "    ${RED}SERVER STOPPED WITH ERROR${NC}" >&2
     echo "  ==================================================="
     echo ""
     read -p "  Press Enter to exit..."

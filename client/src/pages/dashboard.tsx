@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,7 +16,6 @@ import {
   UsersIcon 
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-
 import { useToast } from "@/hooks/use-toast";
 
 interface TwitchStatus {
@@ -32,6 +30,44 @@ interface AuthenticatedUser {
   twitchDisplayName: string;
   twitchProfileImageUrl: string | null;
 }
+
+/* ------------------------------ Helpers ------------------------------ */
+
+function partitionByStart<T extends { timestamp: string }>(
+  items: T[],
+  start: Date | null
+): { today: T[]; missed: T[] } {
+  if (!start) return { today: items, missed: [] };
+  const today: T[] = [];
+  const missed: T[] = [];
+  for (const it of items) {
+    (new Date(it.timestamp) >= start ? today : missed).push(it);
+  }
+  return { today, missed };
+}
+
+function pickForTab<T>(tab: string, today: T[], missed: T[]) {
+  return tab === "today" ? today : missed;
+}
+
+function toHourlyData(messages: ChatMessage[]) {
+  const map: Record<number, number> = {};
+  for (const m of messages) {
+    const h = new Date(m.timestamp).getHours();
+    map[h] = (map[h] ?? 0) + 1;
+  }
+  return Object.entries(map)
+    .map(([hour, count]) => ({ hour: Number(hour), count }))
+    .sort((a, b) => a.hour - b.hour);
+}
+
+function countBy<T>(items: T[], pred: (x: T) => boolean) {
+  let c = 0;
+  for (const x of items) if (pred(x)) c++;
+  return c;
+}
+
+/* -------------------------------------------------------------------- */
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -53,7 +89,6 @@ export default function Dashboard() {
   const { data: settingsList = [] } = useQuery<Settings[]>({
     queryKey: ["/api/settings"],
   });
-
   const settings = settingsList[0];
 
   const { data: twitchStatus } = useQuery<TwitchStatus>({
@@ -68,9 +103,7 @@ export default function Dashboard() {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      if (!authenticatedUser) {
-        throw new Error("Please log in with Twitch first");
-      }
+      if (!authenticatedUser) throw new Error("Please log in with Twitch first");
       const response = await fetch("/api/twitch/connect", {
         method: "POST",
         body: JSON.stringify({
@@ -86,10 +119,7 @@ export default function Dashboard() {
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Connected!",
-        description: "Successfully connected to Twitch chat",
-      });
+      toast({ title: "Connected!", description: "Successfully connected to Twitch chat" });
       queryClient.invalidateQueries({ queryKey: ["/api/twitch/status"] });
     },
     onError: (error: any) => {
@@ -103,18 +133,13 @@ export default function Dashboard() {
 
   const startStreamSessionMutation = useMutation({
     mutationFn: async () => {
-      if (!settings?.id) {
-        throw new Error("Settings not loaded");
-      }
+      if (!settings?.id) throw new Error("Settings not loaded");
       return await apiRequest(`/api/settings/${settings.id}`, "PATCH", {
         streamSessionStarted: new Date().toISOString(),
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Stream session started!",
-        description: "New stream session timestamp has been set",
-      });
+      toast({ title: "Stream session started!", description: "New stream session timestamp has been set" });
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
     },
     onError: (error: any) => {
@@ -126,81 +151,88 @@ export default function Dashboard() {
     },
   });
 
-  const streamSessionStarted = settings?.streamSessionStarted ? new Date(settings.streamSessionStarted) : null;
+  /* --------------------------- Derived data --------------------------- */
 
-  const todayMessages = streamSessionStarted 
-    ? messages.filter((m) => new Date(m.timestamp) >= streamSessionStarted)
-    : messages;
+  const streamSessionStarted = useMemo(
+    () => (settings?.streamSessionStarted ? new Date(settings.streamSessionStarted) : null),
+    [settings?.streamSessionStarted]
+  );
 
-  const missedMessages = streamSessionStarted 
-    ? messages.filter((m) => new Date(m.timestamp) < streamSessionStarted)
-    : [];
+  const { today: todayMessages, missed: missedMessages } = useMemo(
+    () => partitionByStart(messages, streamSessionStarted),
+    [messages, streamSessionStarted]
+  );
+  const { today: todayAnalyses, missed: missedAnalyses } = useMemo(
+    () => partitionByStart(analyses, streamSessionStarted),
+    [analyses, streamSessionStarted]
+  );
+  const { today: todayModerationActions, missed: missedModerationActions } = useMemo(
+    () => partitionByStart(moderationActions, streamSessionStarted),
+    [moderationActions, streamSessionStarted]
+  );
 
-  const todayAnalyses = streamSessionStarted
-    ? analyses.filter((a) => new Date(a.timestamp) >= streamSessionStarted)
-    : analyses;
-
-  const missedAnalyses = streamSessionStarted
-    ? analyses.filter((a) => new Date(a.timestamp) < streamSessionStarted)
-    : [];
-
-  const todayModerationActions = streamSessionStarted
-    ? moderationActions.filter((a) => new Date(a.timestamp) >= streamSessionStarted)
-    : moderationActions;
-
-  const missedModerationActions = streamSessionStarted
-    ? moderationActions.filter((a) => new Date(a.timestamp) < streamSessionStarted)
-    : [];
-
-  const currentMessages = activeTab === "today" ? todayMessages : missedMessages;
-  const currentAnalyses = activeTab === "today" ? todayAnalyses : missedAnalyses;
-  const currentModerationActions = activeTab === "today" ? todayModerationActions : missedModerationActions;
+  const currentMessages = useMemo(
+    () => pickForTab(activeTab, todayMessages, missedMessages),
+    [activeTab, todayMessages, missedMessages]
+  );
+  const currentAnalyses = useMemo(
+    () => pickForTab(activeTab, todayAnalyses, missedAnalyses),
+    [activeTab, todayAnalyses, missedAnalyses]
+  );
+  const currentModerationActions = useMemo(
+    () => pickForTab(activeTab, todayModerationActions, missedModerationActions),
+    [activeTab, todayModerationActions, missedModerationActions]
+  );
 
   const totalMessages = currentMessages.length;
   const aiAnalyzed = currentAnalyses.length;
-  const uniqueUsers = new Set(currentMessages.map((m) => m.username)).size;
+  const uniqueUsers = useMemo(
+    () => new Set(currentMessages.map((m) => m.username)).size,
+    [currentMessages]
+  );
   const moderationActionsCount = currentModerationActions.length;
 
-  const positiveMessages = currentAnalyses.filter((a) => a.sentiment === "positive").length;
-  const negativeMessages = currentAnalyses.filter((a) => a.sentiment === "negative").length;
+  const positiveMessages = useMemo(
+    () => countBy(currentAnalyses, (a) => a.sentiment === "positive"),
+    [currentAnalyses]
+  );
+  const negativeMessages = useMemo(
+    () => countBy(currentAnalyses, (a) => a.sentiment === "negative"),
+    [currentAnalyses]
+  );
 
-  const sentimentData = [
-    { name: "Positive", value: positiveMessages, color: "hsl(var(--chart-2))" },
-    { name: "Neutral", value: currentAnalyses.length - positiveMessages - negativeMessages, color: "hsl(var(--chart-3))" },
-    { name: "Negative", value: negativeMessages, color: "hsl(var(--destructive))" },
-  ];
+  const sentimentData = useMemo(
+    () => [
+      { name: "Positive", value: positiveMessages, color: "hsl(var(--chart-2))" },
+      { name: "Neutral", value: currentAnalyses.length - positiveMessages - negativeMessages, color: "hsl(var(--chart-3))" },
+      { name: "Negative", value: negativeMessages, color: "hsl(var(--destructive))" },
+    ],
+    [currentAnalyses.length, positiveMessages, negativeMessages]
+  );
 
-  const hourlyData = currentMessages.reduce((acc, msg) => {
-    const hour = new Date(msg.timestamp).getHours();
-    const existing = acc.find((d) => d.hour === hour);
-    if (existing) {
-      existing.count++;
-    } else {
-      acc.push({ hour, count: 1 });
+  const hourlyData = useMemo(() => toHourlyData(currentMessages), [currentMessages]);
+  const recentMessages = useMemo(() => [...currentMessages].reverse().slice(0, 20), [currentMessages]);
+
+  const activeUsers = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const msg of currentMessages) counts[msg.username] = (counts[msg.username] ?? 0) + 1;
+    return Object.entries(counts)
+      .map(([username, count]) => ({ username, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [currentMessages]);
+
+  const toxicMessages = useMemo(() => countBy(currentAnalyses, (a) => !!a.toxicity), [currentAnalyses]);
+
+  const categoryDistribution = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const analysis of currentAnalyses) {
+      const categories = analysis.categories || ["general"];
+      for (const c of categories) acc[c] = (acc[c] ?? 0) + 1;
     }
     return acc;
-  }, [] as { hour: number; count: number }[]).sort((a, b) => a.hour - b.hour);
+  }, [currentAnalyses]);
 
-  const recentMessages = [...currentMessages].reverse().slice(0, 20);
-
-  const userMessageCounts = currentMessages.reduce((acc, msg) => {
-    acc[msg.username] = (acc[msg.username] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const activeUsers = Object.entries(userMessageCounts)
-    .map(([username, count]) => ({ username, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const toxicMessages = currentAnalyses.filter((a) => a.toxicity).length;
-
-  const categoryDistribution = currentAnalyses.reduce((acc, analysis) => {
-    const categories = analysis.categories || ["general"];
-    categories.forEach(category => {
-      acc[category] = (acc[category] || 0) + 1;
-    });
-    return acc;
-  }, {} as Record<string, number>);
+  /* ------------------------------- UI -------------------------------- */
 
   return (
     <div className="p-6 space-y-6">
